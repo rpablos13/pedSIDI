@@ -51,23 +51,18 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 	 * @return int el id sesion de cliente que se ha autenticado
 	 */
 	@Override
-	public int autenticarCliente(String nombre) throws RemoteException {
-		int sesionUsuario = getSesion();
-		int id = servicioMercanciasInterface.autenticarCliente(nombre, sesionUsuario);
+	public int autenticarCliente(String nombre, String password) throws RemoteException {
+		int sesionCliente = getSesion();
+		int id = servicioMercanciasInterface.autenticarCliente(nombre, sesionCliente, password);
 		switch (id) {
-		case -2:
-			Interfaz.imprime("El cliente " + nombre + " no esta registrado, no se han tomado medidas");
-			break;
-		case -1:
-			Interfaz.imprime(
-					"No esta su repo online o no se ha podido crear la carpeta, se ha cancelado la autenticacion del cliente"
-							+ nombre);
+		case 1:
+			Interfaz.imprime("Cliente " + nombre + " logueado correctamente");
 			break;
 		case 0:
-			Interfaz.imprime("El cliente " + nombre + " esta ya autenticado en el sistema, no se han tomado medidas");
+			Interfaz.imprime("Usuario o contraseña no válidos");
 			break;
 		default:
-			Interfaz.imprime("El cliente " + nombre + " se ha autenticado como cliente en el sistema");
+			Interfaz.imprime("El Cliente " + nombre + " ya se encuentra logueado");
 			break;
 		}
 		return id;
@@ -82,20 +77,14 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 	 *         el id unico del registro en caso de éxito
 	 */
 	@Override
-	public int registrarCliente(String nombre) throws RemoteException, MalformedURLException, NotBoundException {
+	public int registrarCliente(String nombre, String password)
+			throws RemoteException, MalformedURLException, NotBoundException {
 		int sesion = getSesion();
-		int id = servicioMercanciasInterface.registrarCliente(nombre, sesion);
-		switch (id) {
-		case -1:
-			Interfaz.imprime("No hay repos online, se ha cancelado el registro del cliente " + nombre);
-			break;
-		case 0:
-			Interfaz.imprime("El cliente " + nombre + " esta ya registrado en el sistema, no se han tomado medidas");
-			break;
-		default:
-			Interfaz.imprime("El cliente " + nombre + " se ha registrado en el sistema");
-			break;
-		}
+		int id = servicioMercanciasInterface.registrarCliente(nombre, sesion, password);
+		if (id != 0)
+			Interfaz.imprime("El usuario " + nombre + " se ha registrado Correctamente");
+		else
+			Interfaz.imprime("Ya existe el usuario " + nombre + " en el sistema");
 		return id;
 	}
 

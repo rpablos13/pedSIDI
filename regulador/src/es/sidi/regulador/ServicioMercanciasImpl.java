@@ -40,10 +40,10 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 	// Estructuras que mantiene el almacen de Clientes y Distribuidors registrados
 	// PERSISTENTES
 	private Map<Integer, String> almacenIdCliente = new HashMap<Integer, String>();
-	private Map<Integer, String> almacenClienteId = new HashMap<Integer, String>();
-	private Map<Integer, String> almacenIdDistribuidor = new HashMap<Integer, String>();
-	private Map<String, Integer> almacenDistribuidorNombre = new HashMap<String, Integer>();
-	private Map<String, String> almacenDistribuidorPassword = new HashMap<String, String>();
+	private Map<String, Integer> clienteNombre = new HashMap<String, Integer>();
+	private Map<String, String> clientePassword = new HashMap<String, String>();
+	private Map<String, Integer> distribuidorNombre = new HashMap<String, Integer>();
+	private Map<String, String> distribuidorPassword = new HashMap<String, String>();
 	private Map<Integer, Integer> almacenClienteDistribuidor = new HashMap<Integer, Integer>();
 
 	// Metodos
@@ -91,10 +91,12 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 	 */
 	public void inicializarTablas() {
 		almacenIdCliente = new HashMap<Integer, String>();
-		almacenClienteId = new HashMap<Integer, String>();
-		almacenIdDistribuidor = new HashMap<Integer, String>();
-		almacenDistribuidorNombre = new HashMap<String, Integer>();
-		almacenDistribuidorPassword = new HashMap<String, String>();
+		clienteSesion = new HashMap<Integer, String>();
+		sesionDistribuidor = new HashMap<Integer, String>();
+		distribuidorNombre = new HashMap<String, Integer>();
+		distribuidorPassword = new HashMap<String, String>();
+		clienteNombre = new HashMap<String, Integer>();
+		clientePassword = new HashMap<String, String>();
 		almacenClienteDistribuidor = new HashMap<Integer, Integer>();
 	}
 
@@ -108,25 +110,19 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 	 * @return int entero con el id
 	 */
 	@Override
-	public int autenticarCliente(String nombre, int id) {
-		if (clienteSesion.containsKey(nombre))
-			return Integer.parseInt(clienteSesion.get(nombre));// podriamos no haber hecho nada y retornar 0 al estar
-																// autenticado,
-		// en la repo no dejamos que se vuelva a autorizar
-		else {
-			if (almacenClienteId.containsKey(nombre)) {
+	public int autenticarCliente(String nombre, int id, String password) {
+		if (clienteSesion.containsKey(nombre)) {
+			return -1; // ya esta autenticado
+		}
 
-				int repo = almacenClienteDistribuidor.get(almacenClienteId.get(nombre));
-
-				if (sesionDistribuidor.containsValue(almacenIdDistribuidor.get(repo))) {
-					clienteSesion.put(id, nombre);
-					sesionCliente.put(id, nombre);
-					return id; // autenticado recibe el id sesion
-				} else
-					return -1; // su repo no esta online no se autentica
-
+		else { // Se comprueba que se ha logueado correctamente el usuario
+			String passwordAlmacenada = clientePassword.get(nombre);
+			if (clienteNombre.containsKey(nombre) && password.equals(passwordAlmacenada)) {
+				clienteSesion.put(id, nombre);
+				sesionCliente.put(id, nombre);
+				return 1;
 			} else
-				return -2; // el cliente no esta registrado
+				return 0;// No se ha introducido un usuario o contraseña correctos
 		}
 	}
 
@@ -143,38 +139,18 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 	 * @throws MalformedURLException
 	 */
 	@Override
-	public int registrarCliente(String nombre, int id)
+	public int registrarCliente(String nombre, int id, String password)
 			throws RemoteException, MalformedURLException, NotBoundException {
 
-		// if (almacenClienteId.containsKey(nombre))
-		// return 0;// ya esta registrado
-		// else {
-		// int repo = dameDistribuidor();
-		// if (repo != 0) {
-		// // buscamos el objeto en el servidor gestor para autenticar la repo
-		// int idSesionRepo = DistribuidorSesion.get(almacenIdDistribuidor.get(repo));
-		// String URLRegistro = "rmi://" + direccionSrOperador + ":" + puertoSrOperador
-		// + "/" + nombreSrOperador
-		// + "/" + idSesionRepo;
-		// ServicioSrOperadorInterface servidorSrOperador =
-		// (ServicioSrOperadorInterface) Naming
-		// .lookup(URLRegistro);
-		//
-		// if (servidorSrOperador.crearCarpetaDistribuidor(id)) {
-		//
-		// almacenClienteId.put(nombre, id);
-		// almacenIdCliente.put(id, nombre);
-		// almacenClienteDistribuidor.put(id, repo);
-		// List<Integer> listaFicheros = new ArrayList<Integer>();
-		// almacenClienteFicheros.put(id, listaFicheros);
-		// return id;
-		// } else
-		// return -1;
-		// } else
-		// return -1;// no hay repos disponible estan offline
-		// }
-		return 0;
-
+		// Nos basta con saber si se encuentra en nombre en nuestra base de datos
+		if (clienteNombre.containsKey(nombre))
+			return 0;
+		else {
+			clienteNombre.put(nombre, id);
+			clientePassword.put(nombre, password);
+			sesionCliente.put(id, nombre);
+		}
+		return id;
 	}
 
 	/**
@@ -195,8 +171,8 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 		}
 
 		else { // Se comprueba que se ha logueado correctamente el usuario
-			String passwordAlmacenada = almacenDistribuidorPassword.get(nombre);
-			if (almacenDistribuidorNombre.containsKey(nombre) && password.equals(passwordAlmacenada)) {
+			String passwordAlmacenada = distribuidorPassword.get(nombre);
+			if (distribuidorNombre.containsKey(nombre) && password.equals(passwordAlmacenada)) {
 				distribuidorSesion.put(id, nombre);
 				sesionDistribuidor.put(id, nombre);
 				return 1;
@@ -219,12 +195,12 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 	@Override
 	public int registrarDistribuidor(String nombre, int id, String password) throws RemoteException {
 		// Nos basta con saber si se encuentra en nombre en nuestra base de datos
-		if (almacenDistribuidorNombre.containsKey(nombre))
+		if (distribuidorNombre.containsKey(nombre))
 			return 0;
 		else {
-			almacenDistribuidorNombre.put(nombre, id);
-			almacenDistribuidorPassword.put(nombre, password);
-			almacenIdDistribuidor.put(id, nombre);
+			distribuidorNombre.put(nombre, id);
+			distribuidorPassword.put(nombre, password);
+			sesionDistribuidor.put(id, nombre);
 		}
 		return id;
 	}
@@ -240,7 +216,7 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 	public String listaClientes() throws RemoteException {
 		String clientes = "";
 		for (String nombre : almacenIdCliente.values()) {
-			int id = Integer.parseInt(almacenClienteId.get(nombre));
+			int id = Integer.parseInt(clienteSesion.get(nombre));
 			int estado = 0;
 			if (clienteSesion.containsKey(nombre))
 				estado = 1;
@@ -264,7 +240,7 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 	public String listaDistribuidors() throws RemoteException {
 		String lista = "";
 
-		Iterator it = almacenIdDistribuidor.entrySet().iterator();
+		Iterator it = sesionDistribuidor.entrySet().iterator();
 
 		while (it.hasNext()) {
 			Map.Entry e = (Map.Entry) it.next();
@@ -302,7 +278,7 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 			int idCliente = (Integer) e.getKey();
 			int idDistribuidor = (Integer) e.getValue();
 			String nombreCliente = almacenIdCliente.get(idCliente);
-			String nombreDistribuidor = almacenIdDistribuidor.get(idDistribuidor);
+			String nombreDistribuidor = sesionDistribuidor.get(idDistribuidor);
 			lista = lista + "Pareja Cliente - Distribuidor [cliente=" + idCliente + ", Distribuidor=" + idDistribuidor
 					+ ", nombreCliente=" + nombreCliente + ", nombreDistribuidor=" + nombreDistribuidor + "] ";
 		}
@@ -357,7 +333,7 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 				Map.Entry e = (Map.Entry) it.next();
 				nombre = (String) e.getKey();
 			}
-			return almacenDistribuidorNombre.get(nombre);
+			return distribuidorNombre.get(nombre);
 		}
 	}
 
@@ -371,7 +347,7 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 	@Override
 	public int dimeDistribuidor(int idCliente) {
 		return Integer
-				.parseInt(distribuidorSesion.get(almacenIdDistribuidor.get(almacenClienteDistribuidor.get(idCliente))));
+				.parseInt(distribuidorSesion.get(sesionDistribuidor.get(almacenClienteDistribuidor.get(idCliente))));
 	}
 
 	/**
@@ -383,7 +359,7 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 	 */
 	@Override
 	public int sesion2id(int idsesion) {
-		return Integer.parseInt(almacenClienteId.get(sesionCliente.get(idsesion)));
+		return Integer.parseInt(clienteSesion.get(sesionCliente.get(idsesion)));
 	}
 
 }

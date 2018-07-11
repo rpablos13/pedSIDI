@@ -23,7 +23,7 @@ public interface ServicioAutenticacionInterface extends Remote {
 	 *         0 si ya esta autenticado y id sesion del cliente en otro caso
 	 * @throws RemoteException
 	 */
-	public int autenticarCliente(String nombre) throws RemoteException;
+	public int autenticarCliente(String nombre, String password) throws RemoteException;
 
 	/**
 	 * intenta registrar a un cliente en el servidor
@@ -36,7 +36,8 @@ public interface ServicioAutenticacionInterface extends Remote {
 	 * @throws MalformedURLException
 	 * @throws NotBoundException
 	 */
-	public int registrarCliente(String nombre) throws RemoteException, MalformedURLException, NotBoundException;
+	public int registrarCliente(String nombre, String password)
+			throws RemoteException, MalformedURLException, NotBoundException;
 
 	/**
 	 * intenta autenticar a un repositorio en el servidor

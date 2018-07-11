@@ -39,9 +39,9 @@ public class Distribuidor {
 	public static List<String> listaCarpetas;// = new ArrayList<String>();
 
 	// atributos para buscar el servicio de autentificacion del servidor
-	private static int miSesion = 0;
+	private static int estado = 0;
 	private static int puerto = 7791;
-	private static ServicioAutenticacionInterface regulador;
+	private static ServicioAutenticacionInterface servicioAutenticacionInterface;
 	private static String direccion = "localhost";
 
 	// aqui se van a guardar las URL rmi
@@ -86,7 +86,7 @@ public class Distribuidor {
 		// si el servidor no esta disponible, cerramos informando de ello
 		try {
 			String URLRegistro = autenticador;
-			regulador = (ServicioAutenticacionInterface) Naming.lookup(URLRegistro);
+			servicioAutenticacionInterface = (ServicioAutenticacionInterface) Naming.lookup(URLRegistro);
 
 			// mostramos el menu
 			int opcion = 0;
@@ -116,14 +116,15 @@ public class Distribuidor {
 	private void autenticar() throws Exception {
 		String nombre = Interfaz.pideDato("Nombre: ");
 		String password = Interfaz.pideDato("Password: ");
-		miSesion = regulador.autenticarDistribuidor(nombre, password);
-		switch (miSesion) {
+		estado = servicioAutenticacionInterface.autenticarDistribuidor(nombre, password);
+		switch (estado) {
 
 		case 1:
 			Interfaz.imprime("Distribuidor " + nombre + " logueado correctamente");
 			System.out.println("El path de la repo es: " + System.getProperty("user.dir"));
 			nombreRepo = nombre;// memorizamos el nombre de la repo autenticada
-			levantarServicios();// levanta los servicios Servidor-Operador y Cliente-Operador
+			// levantarServicios();// levanta los servicios Servidor-Operador y
+			// Cliente-Operador
 			break;
 		case 0:
 			Interfaz.imprime("Usuario o contraseña no válidos");
@@ -151,13 +152,13 @@ public class Distribuidor {
 
 		// Levantar SrOperador en sroperador
 		ServicioSrOperadorImpl objetoSrOperador = new ServicioSrOperadorImpl();
-		URLRegistro = sroperador + miSesion;// RMI
+		URLRegistro = sroperador + estado;// RMI
 		Naming.rebind(URLRegistro, objetoSrOperador);
 		System.out.println("Operacion: Servicio Servidor Operador preparado con exito");
 
 		// Levantar SrOperador en sroperador
 		ServicioClOperadorImpl objetoClOperador = new ServicioClOperadorImpl();
-		URLRegistro = cloperador + miSesion;// RMI
+		URLRegistro = cloperador + estado;// RMI
 		Naming.rebind(URLRegistro, objetoClOperador);
 		System.out.println("Operacion: Servicio Cliente Operador preparado con exito");
 
@@ -191,13 +192,13 @@ public class Distribuidor {
 		try {
 			// eliminar Servidor-Operador
 			System.out.println("Operacion: Servicio Servidor Operador cerrandose...");
-			URLRegistro = sroperador + miSesion;// RMI
+			URLRegistro = sroperador + estado;// RMI
 			Naming.unbind(URLRegistro);
 			System.out.println("Operacion: Servicio Servidor Operador cerrado con exito");
 
 			// eliminar Cliente-Operador
 			System.out.println("Operacion: Servicio Cliente Operador cerrandose...");
-			URLRegistro = cloperador + miSesion;// RMI;
+			URLRegistro = cloperador + estado;// RMI;
 			Naming.unbind(URLRegistro);
 			System.out.println("Operacion: Servicio Cliente Operador cerrado con exito");
 
@@ -212,7 +213,7 @@ public class Distribuidor {
 		} catch (NoSuchObjectException e) {
 			System.out.println("No se ha podido cerrar el registro, se ha forzado el cierre");
 		}
-		miSesion = 0;
+		estado = 0;
 
 	}
 
@@ -237,15 +238,14 @@ public class Distribuidor {
 	 * @throws RemoteException
 	 */
 	private void registrar() throws RemoteException {
-		// TODO Auto-generated method stub
 		String nombreDistribuidor = Interfaz.pideDato("Nombre: ");
 		String passwordDistribuidor = Interfaz.pideDato("Contraseña: ");
 
-		if (regulador.registrarDistribuidor(nombreDistribuidor, passwordDistribuidor) != 0)
+		if (servicioAutenticacionInterface.registrarDistribuidor(nombreDistribuidor, passwordDistribuidor) != 0)
 			System.out.println("Registro del Distribuidor. Resultado: " + Resultado.SUCCESSFUL.getResultado());
 		else
 			System.out.println("Registro del Distribuidor. Resultado: " + Resultado.FAIL.getResultado()
-					+ "\n Este Distribuidor ya se encuentra en el sistema");
+					+ "\nEste Distribuidor ya se encuentra en el sistema");
 
 	}
 
@@ -276,7 +276,7 @@ public class Distribuidor {
 	 */
 	private void desconectar() throws RemoteException {
 
-		regulador.desconectarDistribuidor(miSesion);
+		servicioAutenticacionInterface.desconectarDistribuidor(estado);
 		// miSesion=0;
 
 		// Tambien hay que eliminar servicios

@@ -28,6 +28,7 @@ import java.util.List;
 import es.sidi.common.DatosIntercambio;
 import es.sidi.common.Fichero;
 import es.sidi.common.Interfaz;
+import es.sidi.common.Resultado;
 import es.sidi.common.ServicioAutenticacionInterface;
 import es.sidi.common.ServicioClOperadorInterface;
 import es.sidi.common.ServicioGestorInterface;
@@ -35,359 +36,414 @@ import es.sidi.common.ServicioSrOperadorInterface;
 import es.sidi.common.Utils;
 
 public class Cliente {
-	
-	private static int miSesion=0;
-	
-	//atributos para buscar los servicios del servidor
+
+	private static int estado = 0;
+
+	// atributos para buscar los servicios del servidor
 	private static int puerto = 7791;
-	private static ServicioAutenticacionInterface servidor;
+	private static ServicioAutenticacionInterface servicioAutenticacionInterface;
 	private static String direccion = "localhost";
-	
-	//aqui se van a guardar las URL rmi
+
+	// aqui se van a guardar las URL rmi
 	private static String autenticador;
 	private static String gestor;
-	
+
 	private static String discocliente;
-	
+
 	@SuppressWarnings("unused")
-	private static String nombre = ""; //el nombre del cliente de autenticado
-	
+	private static String nombre = ""; // el nombre del cliente de autenticado
+
 	// atributos para levantar el servicio DiscoCliente
 	// es de suponer que esto es necesario ya que puede ejecutarse
-	// en otra maquina tendriamos que saber la ip nuestra 
+	// en otra maquina tendriamos que saber la ip nuestra
 	// y cambiarla por la direccionServicio
 	private static int puertoServicio = 7793;
 	private static Registry registryServicio;
 	private static String direccionServicio = "localhost";
-	
-	
 
 	/**
 	 * main del cliente, generas las URL usadas en el programa
+	 * 
 	 * @param args
 	 * @throws Exception
 	 */
-	public static void main(String[] args) throws Exception{
+	public static void main(String[] args) throws Exception {
 
-		//vamos a crear aqui las direcciones, que por supuesto podriamos leerlas por teclado, desde un fichero de configuracion
-		//o bien pasarselas al jar
-		autenticador = "rmi://" + direccion +         ":" + puerto +         "/autenticador";
+		// vamos a crear aqui las direcciones, que por supuesto podriamos leerlas por
+		// teclado, desde un fichero de configuracion
+		// o bien pasarselas al jar
+		autenticador = "rmi://" + direccion + ":" + puerto + "/autenticador";
 		discocliente = "rmi://" + direccionServicio + ":" + puertoServicio + "/discocliente/";
-		gestor       = "rmi://" + direccion +         ":" + puerto +         "/gestor";
-		
+		gestor = "rmi://" + direccion + ":" + puerto + "/gestor";
+
 		new Cliente().iniciar();
-		System.exit(0);//fin del programa,return o nada deja abierto el programa
+		System.exit(0);// fin del programa,return o nada deja abierto el programa
 	}
 
 	/**
-	 * inicia el registro de un cliente nuevo en el sistema, solicita los datos desde teclado
-	 * @throws NotBoundException 
-	 * @throws MalformedURLException 
+	 * inicia el registro de un cliente nuevo en el sistema, solicita los datos
+	 * desde teclado
+	 * 
+	 * @throws NotBoundException
+	 * @throws MalformedURLException
 	 */
-	private static void registrar() throws RemoteException, MalformedURLException, NotBoundException{
-		String s = Interfaz.pideDato("Introduzca nombre cliente");
-		miSesion = servidor.registrarCliente(s);
-		switch (miSesion){
-		case -1: System.out.println("No hay repos online, intentelo de nuevo mas tarde");break;
-		case 0 : System.out.println(s + " el usuario ya existe en el sistema, puede autenticarlo opcion 2");break;
-		default: System.out.println(s + " se ha registrado en el sistema, ahora puede autenticarse con opcion 2");break;
-		}		
+	private static void registrar() throws RemoteException, MalformedURLException, NotBoundException {
+		String nombre = Interfaz.pideDato("Nombre: ");
+		String password = Interfaz.pideDato("Contraseña: ");
+
+		if (servicioAutenticacionInterface.registrarCliente(nombre, password) != 0)
+			System.out.println("Registro del Cliente. Resultado: " + Resultado.SUCCESSFUL.getResultado());
+		else
+			System.out.println("Registro del Cliente. Resultado: " + Resultado.FAIL.getResultado()
+					+ "\nEste Cliente ya se encuentra en el sistema");
+
 	}
 
 	/**
 	 * conecta con el utenticador y muestra el menu principal
+	 * 
 	 * @throws Exception
 	 */
 	private void iniciar() throws Exception {
-		
-		//buscamos el objeto en el servidor gestor para autenticarnos
-		String URLRegistro = autenticador;//RMI
-		
+
+		// buscamos el objeto en el servidor gestor para autenticarnos
+		String URLRegistro = autenticador;// RMI
+
 		// si el servidor no esta disponible, cerramos informando de ello
-		try{
-			servidor = (ServicioAutenticacionInterface) Naming.lookup(URLRegistro);
-		
-		//mostramos menu de acceso
-			int opcion = 0;	
-			do{
-				opcion = Interfaz.menu("Acceso de Cliente",new String[]
-						{"Registrar un nuevo usuario","Autenticarse en el sistema(hacer login)"});
-			
-				switch (opcion){
-					case 1: registrar();break;
-					case 2: autenticar();break;
-				}			
-			}while (opcion!=3);
-		}catch (ConnectException e){
+		try {
+			servicioAutenticacionInterface = (ServicioAutenticacionInterface) Naming.lookup(URLRegistro);
+
+			// mostramos menu de acceso
+			int opcion = 0;
+			do {
+				opcion = Interfaz.menu("Acceso de Cliente",
+						new String[] { "Registrar un nuevo usuario", "Autenticarse en el sistema(hacer login)" });
+
+				switch (opcion) {
+				case 1:
+					registrar();
+					break;
+				case 2:
+					autenticar();
+					break;
+				}
+			} while (opcion != 3);
+		} catch (ConnectException e) {
 			System.out.println("Error de conexion, el servidor no esta disponible, vuelva a intentarlo mas tarde");
 			String st = Interfaz.pideDato("Pulse enter para finalizar...");
 		}
-		
-	}
-	
-	/**
-	 * inicia la autenticacion de un cliente en el sistema, solicita datos
-	 * y entra en un bucle de peticion de opciones con un menu
-	 * @throws Exception 
-	 */
-	private void autenticar() throws Exception{
-		
-		//ESTO QUIZAS DEBERIAMOS PONER UN CASE PARA -2,-1,0 y >0
-		String s = Interfaz.pideDato("Introduzca nombre cliente");
-		if ((miSesion = servidor.autenticarCliente(s)) > 0) {
-			nombre = s; //asi la clase almacena el nombre del cliente
-			levantarServicios();//levanta el servicio DiscoCliente
-		}
-		else 
-			System.out.println("el usuario no existe en el sistema, use registrarse opcion 1");		
+
 	}
 
 	/**
-	 * solicita la desconexion 
+	 * inicia la autenticacion de un cliente en el sistema, solicita datos y entra
+	 * en un bucle de peticion de opciones con un menu
+	 * 
+	 * @throws Exception
+	 */
+	private void autenticar() throws Exception {
+
+		String nombre = Interfaz.pideDato("Nombre: ");
+		String password = Interfaz.pideDato("Password: ");
+		estado = servicioAutenticacionInterface.autenticarCliente(nombre, password);
+		switch (estado) {
+
+		case 1:
+			Interfaz.imprime("Cliente " + nombre + " logueado correctamente");
+			nuevoMenuClientes();
+			break;
+		case 0:
+			Interfaz.imprime("Usuario o contraseña no válidos");
+			break;
+		default:
+			Interfaz.imprime("El cliente " + nombre + " ya se encuentra logueado");
+		}
+	}
+
+	/**
+	 * solicita la desconexion
+	 * 
 	 * @throws RemoteException
 	 */
-	private void desconectar() throws RemoteException{
-		servidor.desconectarCliente(miSesion);
-		//si ponemos a 0 la sesion aqui el unbind fallara
-		//miSesion=0;
+	private void desconectar() throws RemoteException {
+		servicioAutenticacionInterface.desconectarCliente(estado);
+		// si ponemos a 0 la sesion aqui el unbind fallara
+		// miSesion=0;
 	}
 
 	/**
 	 * levanta el Registry y el servicio Discocliente con el id sesion actual
-	 * muestra los servicios colgados (los discocliente de todos los clientes)
-	 * tiene que cerrar tambien los servicios cuando se sale del menu de Servicio
+	 * muestra los servicios colgados (los discocliente de todos los clientes) tiene
+	 * que cerrar tambien los servicios cuando se sale del menu de Servicio
+	 * 
 	 * @throws Exception
 	 */
-	private void levantarServicios() throws Exception  {
+	private void nuevoMenuClientes() throws Exception {
 		String URLRegistro;
 		arrancarRegistro(puertoServicio);
-		//cuidado con la linea siguiente
+		// cuidado con la linea siguiente
 		Utils.setCodeBase(ServicioSrOperadorInterface.class);
-		
-		//Levantar SrOperador en sroperador
+
+		// Levantar SrOperador en sroperador
 		ServicioDiscoClienteImpl objetoDiscoCliente = new ServicioDiscoClienteImpl();
-		//ServicioDiscoClienteImpl objetoDiscoCliente2 = new ServicioDiscoClienteImpl();
-		//URLRegistro = "rmi://" + direccionServicio + ":" + puertoServicio + "/discocliente";
-		//String URLRegistro2 = "rmi://" + direccionServicio + ":" + puertoServicio + "/discocliente/" + miSesion;
-		//Naming.rebind(URLRegistro2, objetoDiscoCliente2);
-		URLRegistro = discocliente + miSesion ;//RMI
+		ServicioDiscoClienteImpl objetoDiscoCliente2 = new ServicioDiscoClienteImpl();
+		URLRegistro = "rmi://" + direccionServicio + ":" + puertoServicio + "/discocliente";
+		String URLRegistro2 = "rmi://" + direccionServicio + ":" + puertoServicio + "/discocliente/" + estado;
+		Naming.rebind(URLRegistro2, objetoDiscoCliente2);
+		URLRegistro = discocliente + estado;// RMI
 		Naming.rebind(URLRegistro, objetoDiscoCliente);
 		System.out.println("Operacion: Servicio Disco Cliente preparado con exito");
-				
+
 		listRegistry("rmi://" + direccionServicio + ":" + puertoServicio);
-		//menu una vez autenticado el servicio
+		// menu una vez autenticado el servicio
 		menuServicio();
-		
-		//eliminar Servidor-Operador
+
+		// eliminar Servidor-Operador
 		System.out.println("Operacion: Servicio Disco Cliente cerrandose...");
 		try {
-			URLRegistro = discocliente + miSesion;//RMI
-			Naming.unbind(URLRegistro);	
+			URLRegistro = discocliente + estado;// RMI
+			Naming.unbind(URLRegistro);
 			System.out.println("Operacion: Servicio Disco Cliente cerrado con exito");
-	
-			//cerrar rmiregistry del objeto registry unico
-			if (estaVacioRegistry(discocliente)) { //RMI
-				UnicastRemoteObject.unexportObject(registryServicio,true);		
+
+			// cerrar rmiregistry del objeto registry unico
+			if (estaVacioRegistry(discocliente)) { // RMI
+				UnicastRemoteObject.unexportObject(registryServicio, true);
 				System.out.println("Operacion: Registry cerrado con exito");
-			} else System.out.println("Operacion: Registry todavia esta abierto porque quedan clientes conectados");
+			} else
+				System.out.println("Operacion: Registry todavia esta abierto porque quedan clientes conectados");
 
 		} catch (NoSuchObjectException e) {
-		    System.out.println("No se ha podido cerrar el registro, se ha forzado el cierre");
+			System.out.println("No se ha podido cerrar el registro, se ha forzado el cierre");
 		}
-		miSesion = 0;
-		
+		estado = 0;
+
 	}
-	
+
 	/**
 	 * Proporciona un menu mediante un bucle de espera
+	 * 
 	 * @throws RemoteException
 	 * @throws MalformedURLException
 	 * @throws NotBoundException
 	 */
-	private void menuServicio() throws RemoteException, MalformedURLException, NotBoundException{
-		int opcion = 0;	
-		do{
-			opcion = Interfaz.menu("Operaciones de Cliente",new String[]
-					{"Subir fichero","Bajar fichero","Borrar fichero","Compartir fichero",
-					"Listar ficheros","Listar clientes del sistema"});				
-			switch (opcion){
-			
-			 
-				case 1: introducirDemanda();break;
-				case 2: recibirOfertas();break;
-				case 3: comprarMercancia();break;
-				case 4: darDeBaja();break;
-				case 5: salir();break;
-			}			
-		}while (opcion!=6);
-		
+	private void menuServicio() throws RemoteException, MalformedURLException, NotBoundException {
+		int opcion = 0;
+		do {
+			opcion = Interfaz.menu("Operaciones de Cliente",
+					new String[] { "Introducir demanda", "Recibir ofertas", "Comprar mercancía", "Dar de baja" });
+			switch (opcion) {
+
+			case 1:
+				introducirDemanda();
+				break;
+			case 2:
+				recibirOfertas();
+				break;
+			case 3:
+				comprarMercancia();
+				break;
+			case 4:
+				darDeBaja();
+				break;
+			case 5:
+				salir();
+				break;
+			}
+		} while (opcion != 6);
+
 		desconectar();
 	}
 
 	/**
-	 * Muestra por pantalla la lista de los clientes registrados y cuales de ellos estan online 
+	 * Muestra por pantalla la lista de los clientes registrados y cuales de ellos
+	 * estan online
+	 * 
 	 * @throws MalformedURLException
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
 	private void listarClientes() throws MalformedURLException, RemoteException, NotBoundException {
-		String URLRegistro = gestor;//RMI
-		ServicioGestorInterface servicioGestor =  (ServicioGestorInterface) Naming.lookup(URLRegistro);
-		
+		String URLRegistro = gestor;// RMI
+		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
+
 		String lista = servicioGestor.listarClientes();
 		System.out.println(lista);
-		
+
 	}
 
 	/**
 	 * Muestra los ficheros(compartidos incluidos) que tiene este cliente
+	 * 
 	 * @throws MalformedURLException
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
 	private void salir() throws MalformedURLException, RemoteException, NotBoundException {
-		
-		String URLRegistro = gestor;//RMI
-		ServicioGestorInterface servicioGestor =  (ServicioGestorInterface) Naming.lookup(URLRegistro);
-		
-		//el servicio Gestor solo necesita el id de la sesion del cliente para saber quien es
-		List<String> lista = servicioGestor.listarFicherosCliente(miSesion);
+
+		String URLRegistro = gestor;// RMI
+		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
+
+		// el servicio Gestor solo necesita el id de la sesion del cliente para saber
+		// quien es
+		List<String> lista = servicioGestor.listarFicherosCliente(estado);
 		System.out.println(lista);
-		
-		
+
 	}
 
 	/**
-	 * comparte un fichero, pidiendo el id del fichero y el nombre a quien se compartira
+	 * comparte un fichero, pidiendo el id del fichero y el nombre a quien se
+	 * compartira
+	 * 
 	 * @throws MalformedURLException
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
 	private void darDeBaja() throws MalformedURLException, RemoteException, NotBoundException {
 		salir();
-		String s = Interfaz.pideDato("Introduzca el IDENTIFICADOR del fichero, p.e. X.- nombre.Fichero, el identificador es X");
-		int idFichero = Integer.parseInt(s);	
-		
+		String s = Interfaz
+				.pideDato("Introduzca el IDENTIFICADOR del fichero, p.e. X.- nombre.Fichero, el identificador es X");
+		int idFichero = Integer.parseInt(s);
+
 		listarClientes();
 		String nombreCliente = Interfaz.pideDato("Introduzca nombre del cliente");
-		
-		String URLRegistro = gestor; //RMI
-		ServicioGestorInterface servicioGestor =  (ServicioGestorInterface) Naming.lookup(URLRegistro);
-		
-		boolean compartido = servicioGestor.compartirFichero(idFichero,nombreCliente,miSesion);
-		
-		if (compartido) System.out.println("El fichero se ha compartido correctamente");
-		else System.out.println("El fichero no se ha podido compartir");
+
+		String URLRegistro = gestor; // RMI
+		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
+
+		boolean compartido = servicioGestor.compartirFichero(idFichero, nombreCliente, estado);
+
+		if (compartido)
+			System.out.println("El fichero se ha compartido correctamente");
+		else
+			System.out.println("El fichero no se ha podido compartir");
 	}
 
 	/**
-	 * borrar un fichero, pide el borrado al servicio Gestor quien devuelve la url del servicio del respositorio
+	 * borrar un fichero, pide el borrado al servicio Gestor quien devuelve la url
+	 * del servicio del respositorio
+	 * 
 	 * @throws MalformedURLException
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
 	private void comprarMercancia() throws MalformedURLException, RemoteException, NotBoundException {
-		//mostramos los ficheros
+		// mostramos los ficheros
 		salir();
-		String s = Interfaz.pideDato("Introduzca el IDENTIFICADOR del fichero, p.e. X.- nombre.Fichero, el identificador es X");
+		String s = Interfaz
+				.pideDato("Introduzca el IDENTIFICADOR del fichero, p.e. X.- nombre.Fichero, el identificador es X");
 		int idFichero = Integer.parseInt(s);
-		
-		//Solicitamos la URL del ServicioClOperador
-		String URLRegistro = gestor;//RMI
-		ServicioGestorInterface servicioGestor =  (ServicioGestorInterface) Naming.lookup(URLRegistro);
-		//CUIDADO CON miSesion, hay que estudiar esto, para que no se borren los compartidos
-		DatosIntercambio di = servicioGestor.borrarFichero(idFichero,miSesion);
-		if (di.getUrl().equals("")) 
-			System.out.println("No se ha podido completar el borrado, no tiene privilegios suficientes o el fichero no es suyo");
+
+		// Solicitamos la URL del ServicioClOperador
+		String URLRegistro = gestor;// RMI
+		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
+		// CUIDADO CON miSesion, hay que estudiar esto, para que no se borren los
+		// compartidos
+		DatosIntercambio di = servicioGestor.borrarFichero(idFichero, estado);
+		if (di.getUrl().equals(""))
+			System.out.println(
+					"No se ha podido completar el borrado, no tiene privilegios suficientes o el fichero no es suyo");
 		else {
 			String URL = di.getUrl();
 			String nombreFichero = di.getNombreFichero();
-			String propietario = ""+di.getIdCliente();
-			//System.out.println(propietario);
-			//System.out.println(URLservicioClOperador);
-			
-			ServicioClOperadorInterface servicioClOperador =(ServicioClOperadorInterface)Naming.lookup(URL);
-			
-			if (servicioClOperador.borrarFichero(nombreFichero,propietario)==false)
-			{
-				System.out.println("Error al borrar el fichero "+ nombreFichero + ", pida que lo borran manualmente al administrador del repositorio");
+			String propietario = "" + di.getIdCliente();
+			// System.out.println(propietario);
+			// System.out.println(URLservicioClOperador);
+
+			ServicioClOperadorInterface servicioClOperador = (ServicioClOperadorInterface) Naming.lookup(URL);
+
+			if (servicioClOperador.borrarFichero(nombreFichero, propietario) == false) {
+				System.out.println("Error al borrar el fichero " + nombreFichero
+						+ ", pida que lo borran manualmente al administrador del repositorio");
+			} else {
+				System.out.println("Fichero: " + nombreFichero + " borrado");
 			}
-			else{
-				System.out.println("Fichero: " + nombreFichero + " borrado");	
-			}	
 		}
-		
+
 	}
 
 	/**
-	 * solicita la descarga de un fichero pidiendo el id de fichero(compartidos incluidos)
+	 * solicita la descarga de un fichero pidiendo el id de fichero(compartidos
+	 * incluidos)
+	 * 
 	 * @throws MalformedURLException
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
 	private void recibirOfertas() throws MalformedURLException, RemoteException, NotBoundException {
 		salir();
-		String s = Interfaz.pideDato("Introduzca el IDENTIFICADOR del fichero, p.e. X.- nombre.Fichero, el identificador es X");
+		String s = Interfaz
+				.pideDato("Introduzca el IDENTIFICADOR del fichero, p.e. X.- nombre.Fichero, el identificador es X");
 		int idFichero = Integer.parseInt(s);
-		
-		String URLRegistro = gestor;//RMI
-		ServicioGestorInterface servicioGestor =  (ServicioGestorInterface) Naming.lookup(URLRegistro);
-		//realmente no necesitamos que nos devuelva nada en principio, pero comunicar algo siempre es importante para monitorizar el proceso
-		//String URLdiscoCliente = "rmi://" + direccionServicio + ":" + puertoServicio + "/" + "discocliente";
-		String URLdiscoCliente = discocliente + miSesion;//RMI
-		String cadena = servicioGestor.bajarFichero(URLdiscoCliente,idFichero,miSesion);
-		if (cadena==null) System.out.println("No ha sido posible bajar ese fichero");else System.out.println("Fichero bajado: " + cadena);
-		
+
+		String URLRegistro = gestor;// RMI
+		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
+		// realmente no necesitamos que nos devuelva nada en principio, pero comunicar
+		// algo siempre es importante para monitorizar el proceso
+		// String URLdiscoCliente = "rmi://" + direccionServicio + ":" + puertoServicio
+		// + "/" + "discocliente";
+		String URLdiscoCliente = discocliente + estado;// RMI
+		String cadena = servicioGestor.bajarFichero(URLdiscoCliente, idFichero, estado);
+		if (cadena == null)
+			System.out.println("No ha sido posible bajar ese fichero");
+		else
+			System.out.println("Fichero bajado: " + cadena);
+
 	}
 
 	/**
 	 * solicita la subida de un fichero a su repo
+	 * 
 	 * @throws MalformedURLException
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
 	private void introducirDemanda() throws MalformedURLException, RemoteException, NotBoundException {
-		//debe estar en la carpeta actual
+		// debe estar en la carpeta actual
 		System.out.println("¡¡OJO!! el fichero debe estar en la carpeta actual");
-		String nombreFichero = Interfaz.pideDato("Introduzca el nombre del fichero");		
+		String nombreFichero = Interfaz.pideDato("Introduzca el nombre del fichero");
 		File f = new File(nombreFichero);
-	    if (!f.exists())
-	        System.out.println("El fichero no existe, abortamos la mision");
-	      else {
-	    	  //Solicitamos la URL del ServicioClOperador
-	    	  String URLRegistro = gestor;//RMI
-	    	  ServicioGestorInterface servicioGestor =  (ServicioGestorInterface) Naming.lookup(URLRegistro);
-				
-	    	  //Le pasamos el nombre del fichero y el id de sesion y Gestor ya se encargara de colocar los metadatos
-	    	  //Desde esta llamada podriamos pasar los metadatos como el peso o el ckecksum con los metodos de Fichero
-	    	  //De todas formas el gestor va a poder conseguir el idRepo el nombreRepo,idCliente,nombreCliente con 
-	    	  //tan solo miSesion con ese dato que pida los datos al servicioDatos
-		
-	    	  DatosIntercambio datosURL = servicioGestor.subirFichero(nombreFichero,miSesion);
-		
-	    	  //extraemos la carpeta donde se va a guardar el fichero, que sera el id, del cliente
-	    	  //que sera al mismo tiempo el propietario del Fichero, segundo parametro
-		
-	    	  String URLservicioClOperador = datosURL.getUrl();
-	    	  String propietario = ""+datosURL.getIdCliente();
-	    	  
-	    	  //HAY QUE COMPROBAR SI EXISTE EL FICHERO en la carpeta actual
-	    	  Fichero fichero= new Fichero(nombreFichero,propietario);
-	    	  ServicioClOperadorInterface servicioClOperador =(ServicioClOperadorInterface)Naming.lookup(URLservicioClOperador);
+		if (!f.exists())
+			System.out.println("El fichero no existe, abortamos la mision");
+		else {
+			// Solicitamos la URL del ServicioClOperador
+			String URLRegistro = gestor;// RMI
+			ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
 
-	    	  if (servicioClOperador.subirFichero(fichero)==false)
-	    	  {
-	    		  System.out.println("Error en el envío (Checksum failed), intenta de nuevo");
-	    	  }
-	    	  else{
-	    		  System.out.println("Fichero: " + nombreFichero + " enviado");	
-	    	  }
-	      }		
+			// Le pasamos el nombre del fichero y el id de sesion y Gestor ya se encargara
+			// de colocar los metadatos
+			// Desde esta llamada podriamos pasar los metadatos como el peso o el ckecksum
+			// con los metodos de Fichero
+			// De todas formas el gestor va a poder conseguir el idRepo el
+			// nombreRepo,idCliente,nombreCliente con
+			// tan solo miSesion con ese dato que pida los datos al servicioDatos
+
+			DatosIntercambio datosURL = servicioGestor.subirFichero(nombreFichero, estado);
+
+			// extraemos la carpeta donde se va a guardar el fichero, que sera el id, del
+			// cliente
+			// que sera al mismo tiempo el propietario del Fichero, segundo parametro
+
+			String URLservicioClOperador = datosURL.getUrl();
+			String propietario = "" + datosURL.getIdCliente();
+
+			// HAY QUE COMPROBAR SI EXISTE EL FICHERO en la carpeta actual
+			Fichero fichero = new Fichero(nombreFichero, propietario);
+			ServicioClOperadorInterface servicioClOperador = (ServicioClOperadorInterface) Naming
+					.lookup(URLservicioClOperador);
+
+			if (servicioClOperador.subirFichero(fichero) == false) {
+				System.out.println("Error en el envío (Checksum failed), intenta de nuevo");
+			} else {
+				System.out.println("Fichero: " + nombreFichero + " enviado");
+			}
+		}
 	}
 
 	/**
 	 * Se usa para levantar el servicio del Disco Cliente
-	 * @param numPuertoRMI numero de puerto del servicio DiscoCliente
+	 * 
+	 * @param numPuertoRMI
+	 *            numero de puerto del servicio DiscoCliente
 	 * @throws RemoteException
 	 */
 	private void arrancarRegistro(int numPuertoRMI) throws RemoteException {
@@ -395,40 +451,44 @@ public class Cliente {
 			registryServicio = LocateRegistry.getRegistry(numPuertoRMI);
 			registryServicio.list(); // Esta llamada lanza
 			// una excepcion si el registro no existe
-		}
-		catch (RemoteException e) {
+		} catch (RemoteException e) {
 			// Registro no valido en este puerto
-			System.out.println("El registro RMI no se puede localizar en el puerto "+ numPuertoRMI);
-			registryServicio =	LocateRegistry.createRegistry(numPuertoRMI);
+			System.out.println("El registro RMI no se puede localizar en el puerto " + numPuertoRMI);
+			registryServicio = LocateRegistry.createRegistry(numPuertoRMI);
 			System.out.println("Registro RMI creado en el puerto " + numPuertoRMI);
 		}
 	}
 
 	/**
 	 * lista los servicios de un puerto
-	 * @param registryURL la direccion del puerto a comprobar
+	 * 
+	 * @param registryURL
+	 *            la direccion del puerto a comprobar
 	 * @throws RemoteException
 	 * @throws MalformedURLException
 	 */
-	private static void listRegistry(String registryURL) throws RemoteException, MalformedURLException{
+	private static void listRegistry(String registryURL) throws RemoteException, MalformedURLException {
 		System.out.println("Registry " + registryURL + " contiene: ");
-		String[] names =Naming.list(registryURL);
-		for  (int i=0; i< names.length; i++)
-		{
+		String[] names = Naming.list(registryURL);
+		for (int i = 0; i < names.length; i++) {
 			System.out.println(names[i]);
 		}
 	}
 
 	/**
 	 * comprueba si tiene colgados servicios en el la URL
+	 * 
 	 * @param URL
 	 * @return true si no hay servicios en la URL
 	 * @throws RemoteException
 	 * @throws MalformedURLException
 	 */
-	private static boolean estaVacioRegistry(String URL) throws RemoteException, MalformedURLException{
+	private static boolean estaVacioRegistry(String URL) throws RemoteException, MalformedURLException {
 		String[] names = Naming.list(URL);
-		if (names.length == 0) return true; else return false;		
+		if (names.length == 0)
+			return true;
+		else
+			return false;
 	}
 
 }

@@ -27,7 +27,7 @@ public interface ServicioMercanciasInterface extends Remote {
 	 *         contrario
 	 * @throws RemoteException
 	 */
-	public int autenticarCliente(String nombre, int id) throws RemoteException;
+	public int autenticarCliente(String nombre, int id, String password) throws RemoteException;
 
 	/**
 	 * registra a un cliente
@@ -42,7 +42,8 @@ public interface ServicioMercanciasInterface extends Remote {
 	 * @throws MalformedURLException
 	 * @throws NotBoundException
 	 */
-	public int registrarCliente(String nombre, int id) throws RemoteException, MalformedURLException, NotBoundException;
+	public int registrarCliente(String nombre, int id, String password)
+			throws RemoteException, MalformedURLException, NotBoundException;
 
 	/**
 	 * desconecta a un cliente, borra la sesion actual del cliente
