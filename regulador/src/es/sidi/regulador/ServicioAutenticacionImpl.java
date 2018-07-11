@@ -17,126 +17,160 @@ import java.util.Random;
 
 import es.sidi.common.Interfaz;
 import es.sidi.common.ServicioAutenticacionInterface;
-import es.sidi.common.ServicioDatosInterface;
+import es.sidi.common.ServicioMercanciasInterface;
 
+public class ServicioAutenticacionImpl extends UnicastRemoteObject implements ServicioAutenticacionInterface {
 
-public class ServicioAutenticacionImpl extends UnicastRemoteObject implements ServicioAutenticacionInterface{
-
-	//necesitamos identificadores de sesion
+	// necesitamos identificadores de sesion
 	private static final long serialVersionUID = 123711131719L;
-	private int sesion = Math.abs(new Random().nextInt()); //no quiero numeros negativos
+	private int sesion = Math.abs(new Random().nextInt()); // no quiero numeros negativos
 	private int puerto = 7791;
-	private ServicioDatosInterface almacen;
-	
+	private ServicioMercanciasInterface servicioMercanciasInterface;
+
 	/**
 	 * Contructor necesario al extender UnicastRemoteOBject y poder utilizar Naming
 	 * lo aprovecharemos tambien para buscar el almacen de datos
+	 * 
 	 * @throws RemoteException
-	 * @throws NotBoundException 
-	 * @throws MalformedURLException 
+	 * @throws NotBoundException
+	 * @throws MalformedURLException
 	 */
 	protected ServicioAutenticacionImpl() throws RemoteException, MalformedURLException, NotBoundException {
 		super();
 
-		//buscamos el objeto en el servidor gestor para autenticarnos
+		// buscamos el objeto en el servidor gestor para autenticarnos
 		String URLRegistro = "rmi://localhost:" + puerto + "/almacen";
-		almacen = (ServicioDatosInterface) Naming.lookup(URLRegistro);		
+		servicioMercanciasInterface = (ServicioMercanciasInterface) Naming.lookup(URLRegistro);
 	}
 
 	/**
 	 * solicita al servicio de Datos la autenticacion de un cliente,
-	 * @param el nombre del cliente  que se quiere autenticar
+	 * 
+	 * @param el
+	 *            nombre del cliente que se quiere autenticar
 	 * @return int el id sesion de cliente que se ha autenticado
 	 */
 	@Override
-	public int autenticarCliente(String nombre) throws RemoteException {		
+	public int autenticarCliente(String nombre) throws RemoteException {
 		int sesionUsuario = getSesion();
-		int id = almacen.autenticarCliente(nombre, sesionUsuario);
-		switch (id){
-		case -2 : Interfaz.imprime("El cliente " + nombre + " no esta registrado, no se han tomado medidas");break;
-		case -1 : Interfaz.imprime("No esta su repo online o no se ha podido crear la carpeta, se ha cancelado la autenticacion del cliente" + nombre); break;
-		case 0  : Interfaz.imprime("El cliente " + nombre + " esta ya autenticado en el sistema, no se han tomado medidas");break;
-		default : Interfaz.imprime("El cliente " + nombre + " se ha autenticado como cliente en el sistema");break;
-		}		
+		int id = servicioMercanciasInterface.autenticarCliente(nombre, sesionUsuario);
+		switch (id) {
+		case -2:
+			Interfaz.imprime("El cliente " + nombre + " no esta registrado, no se han tomado medidas");
+			break;
+		case -1:
+			Interfaz.imprime(
+					"No esta su repo online o no se ha podido crear la carpeta, se ha cancelado la autenticacion del cliente"
+							+ nombre);
+			break;
+		case 0:
+			Interfaz.imprime("El cliente " + nombre + " esta ya autenticado en el sistema, no se han tomado medidas");
+			break;
+		default:
+			Interfaz.imprime("El cliente " + nombre + " se ha autenticado como cliente en el sistema");
+			break;
+		}
 		return id;
 	}
 
 	/**
 	 * registra un cliente
-	 * @param String el nombre del cliente a registrar
-	 * @return int -1 si no hay repos online, 0 si el cliente ya esta registrado y el id unico del registro en caso de éxito
+	 * 
+	 * @param String
+	 *            el nombre del cliente a registrar
+	 * @return int -1 si no hay repos online, 0 si el cliente ya esta registrado y
+	 *         el id unico del registro en caso de éxito
 	 */
 	@Override
-	public int registrarCliente(String nombre) throws RemoteException, MalformedURLException, NotBoundException{
+	public int registrarCliente(String nombre) throws RemoteException, MalformedURLException, NotBoundException {
 		int sesion = getSesion();
-		int id = almacen.registrarCliente(nombre,sesion);
-		switch (id){
-		case -1 : Interfaz.imprime("No hay repos online, se ha cancelado el registro del cliente " + nombre); break;
-		case 0  : Interfaz.imprime("El cliente " + nombre + " esta ya registrado en el sistema, no se han tomado medidas");break;
-		default : Interfaz.imprime("El cliente " + nombre + " se ha registrado en el sistema");break;
+		int id = servicioMercanciasInterface.registrarCliente(nombre, sesion);
+		switch (id) {
+		case -1:
+			Interfaz.imprime("No hay repos online, se ha cancelado el registro del cliente " + nombre);
+			break;
+		case 0:
+			Interfaz.imprime("El cliente " + nombre + " esta ya registrado en el sistema, no se han tomado medidas");
+			break;
+		default:
+			Interfaz.imprime("El cliente " + nombre + " se ha registrado en el sistema");
+			break;
 		}
 		return id;
 	}
 
 	/**
 	 * autentica un repositorio
-	 * @param String el nombre del repositorio
+	 * 
+	 * @param String
+	 *            el nombre del repositorio
 	 * @return int el id sesion de la repo
 	 */
 	@Override
-	public int autenticarRepositorio(String nombre) throws RemoteException {
-		int sesionRepositorio = getSesion();
-		int id = almacen.autenticarRepositorio(nombre, sesionRepositorio);
-		switch (id){
-		case -1 : Interfaz.imprime("la repo " + nombre + " no esta registrada, se ha cancelado la autenticacion");break;
-		case 0  : Interfaz.imprime("La repo " + nombre + " ya esta autenticada, no se han tomado medidas");break;
-		default : Interfaz.imprime(nombre + " se ha autenticado como repo en el sistema");break;
+	public int autenticarDistribuidor(String nombre, String password) throws RemoteException {
+		int sesionDistribuidor = getSesion();
+		int id = servicioMercanciasInterface.autenticarDistribuidor(nombre, sesionDistribuidor, password);
+		switch (id) {
+		case 1:
+			Interfaz.imprime("Distribuidor " + nombre + " logueado correctamente");
+			break;
+		case 0:
+			Interfaz.imprime("Usuario o contraseña no válidos");
+			break;
+		default:
+			Interfaz.imprime("El distribuidor " + nombre + " ya se encuentra logueado");
+			break;
 		}
 		return id;
 	}
 
 	/**
 	 * registra un repositorio
+	 * 
 	 * @String el nombre del repositorio
 	 * @return int el id sesion del repositorio
 	 */
 	@Override
-	public int registrarRepositorio(String nombre) throws RemoteException {
+	public int registrarDistribuidor(String nombre, String password) throws RemoteException {
 		int sesion = getSesion();
-		int id = almacen.registrarRepositorio(nombre,sesion);
+		int id = servicioMercanciasInterface.registrarDistribuidor(nombre, sesion, password);
 		if (id != 0)
-			Interfaz.imprime("La repo " + nombre + " se ha registrado en el sistema");
-		else 
-			Interfaz.imprime("Se ha intentado duplicar la repo " + nombre + ", se ha cancelado la operacion");
+			Interfaz.imprime("El usuario " + nombre + " se ha registrado Correctamente");
+		else
+			Interfaz.imprime("Ya existe el usuario " + nombre + " en el sistema");
 		return id;
 	}
 
 	/**
 	 * solicita al Gestor la desconexion de un cliente
-	 * @param sesion  int el id sesion del cliente a desconectar
+	 * 
+	 * @param sesion
+	 *            int el id sesion del cliente a desconectar
 	 */
 	@Override
 	public void desconectarCliente(int sesion) throws RemoteException {
-		String cliente = almacen.desconectarCliente(sesion);
-		Interfaz.imprime("El cliente " + cliente + " se ha desconectado del sistema");	
+		String cliente = servicioMercanciasInterface.desconectarCliente(sesion);
+		Interfaz.imprime("El cliente " + cliente + " se ha desconectado del sistema");
 	}
 
 	/**
 	 * solicita al Gestor la desconexion de una repo
-	 * @param sesion int el id sesion de la repo a desconectar
+	 * 
+	 * @param sesion
+	 *            int el id sesion de la repo a desconectar
 	 */
 	@Override
-	public void desconectarRepositorio(int sesion) throws RemoteException { 
-		String repo = almacen.desconectarRepositorio(sesion);
-		Interfaz.imprime("La repo " + repo + " se ha desconectado del sistema");		
+	public void desconectarDistribuidor(int sesion) throws RemoteException {
+		String repo = servicioMercanciasInterface.desconectarDistribuidor(sesion);
+		Interfaz.imprime("La repo " + repo + " se ha desconectado del sistema");
 	}
 
-	
 	/**
 	 * devulve un id de sesion
+	 * 
 	 * @return int un id sesion nuevo valido para cliente o repo
 	 */
-	//devuelve el contador de sesiones
+	// devuelve el contador de sesiones
 	public int getSesion() {
 		return ++sesion;
 	}

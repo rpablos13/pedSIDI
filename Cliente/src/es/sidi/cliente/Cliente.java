@@ -1,6 +1,7 @@
 /**
  * Funciones del Cliente:
 
+
  * 
  * 1. Introducir demanda
  * 2. Recibir ofertas
@@ -45,6 +46,7 @@ public class Cliente {
 	//aqui se van a guardar las URL rmi
 	private static String autenticador;
 	private static String gestor;
+	
 	private static String discocliente;
 	
 	@SuppressWarnings("unused")
@@ -57,6 +59,7 @@ public class Cliente {
 	private static int puertoServicio = 7793;
 	private static Registry registryServicio;
 	private static String direccionServicio = "localhost";
+	
 	
 
 	/**
@@ -208,14 +211,15 @@ public class Cliente {
 					{"Subir fichero","Bajar fichero","Borrar fichero","Compartir fichero",
 					"Listar ficheros","Listar clientes del sistema"});				
 			switch (opcion){
-				case 1: subirFichero();break;
-				case 2: bajarFichero();break;
-				case 3: borrarFichero();break;
-				case 4: compartirFichero();break;
-				case 5: listarFicheros();break;
-				case 6: listarClientes();break;
+			
+			 
+				case 1: introducirDemanda();break;
+				case 2: recibirOfertas();break;
+				case 3: comprarMercancia();break;
+				case 4: darDeBaja();break;
+				case 5: salir();break;
 			}			
-		}while (opcion!=7);
+		}while (opcion!=6);
 		
 		desconectar();
 	}
@@ -241,7 +245,7 @@ public class Cliente {
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
-	private void listarFicheros() throws MalformedURLException, RemoteException, NotBoundException {
+	private void salir() throws MalformedURLException, RemoteException, NotBoundException {
 		
 		String URLRegistro = gestor;//RMI
 		ServicioGestorInterface servicioGestor =  (ServicioGestorInterface) Naming.lookup(URLRegistro);
@@ -259,8 +263,8 @@ public class Cliente {
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
-	private void compartirFichero() throws MalformedURLException, RemoteException, NotBoundException {
-		listarFicheros();
+	private void darDeBaja() throws MalformedURLException, RemoteException, NotBoundException {
+		salir();
 		String s = Interfaz.pideDato("Introduzca el IDENTIFICADOR del fichero, p.e. X.- nombre.Fichero, el identificador es X");
 		int idFichero = Integer.parseInt(s);	
 		
@@ -282,9 +286,9 @@ public class Cliente {
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
-	private void borrarFichero() throws MalformedURLException, RemoteException, NotBoundException {
+	private void comprarMercancia() throws MalformedURLException, RemoteException, NotBoundException {
 		//mostramos los ficheros
-		listarFicheros();
+		salir();
 		String s = Interfaz.pideDato("Introduzca el IDENTIFICADOR del fichero, p.e. X.- nombre.Fichero, el identificador es X");
 		int idFichero = Integer.parseInt(s);
 		
@@ -321,8 +325,8 @@ public class Cliente {
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
-	private void bajarFichero() throws MalformedURLException, RemoteException, NotBoundException {
-		listarFicheros();
+	private void recibirOfertas() throws MalformedURLException, RemoteException, NotBoundException {
+		salir();
 		String s = Interfaz.pideDato("Introduzca el IDENTIFICADOR del fichero, p.e. X.- nombre.Fichero, el identificador es X");
 		int idFichero = Integer.parseInt(s);
 		
@@ -342,7 +346,7 @@ public class Cliente {
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
-	private void subirFichero() throws MalformedURLException, RemoteException, NotBoundException {
+	private void introducirDemanda() throws MalformedURLException, RemoteException, NotBoundException {
 		//debe estar en la carpeta actual
 		System.out.println("¡¡OJO!! el fichero debe estar en la carpeta actual");
 		String nombreFichero = Interfaz.pideDato("Introduzca el nombre del fichero");		
