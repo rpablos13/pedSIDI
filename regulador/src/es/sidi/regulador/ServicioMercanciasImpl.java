@@ -1,13 +1,6 @@
 /**
- * La clase ServicioDatosImpl implementa la interface ServicioDatosInterface
- * Almacena y gestiona los datos como si de una base de datos se tratase
- * De esta forma el acoplamiento es minimo, y podemos rescribirla utilizando
- * cualquier otro mecanismo de almacenamiento
- * 
- * Recordemos operaciones con HashMap: put y containsKey
- * 
- * @autor Buenaventura Salcedo Santos-Olmo, xpressmoviles@gmail.com
- * @version v1.20170228
+ * Esta clase gestiona todo lo relacionado con los distribuidores
+ * @autor rpablos13@alumno.uned.es
  */
 package es.sidi.regulador;
 
@@ -25,84 +18,58 @@ import java.util.Map.Entry;
 
 import es.sidi.common.RandomSessionNumber;
 import es.sidi.common.Resultado;
-import es.sidi.common.ServicioAutenticacionInterface;
-import es.sidi.common.ServicioClienteInterface;
 import es.sidi.common.ServicioMercanciasInterface;
+import es.sidi.common.ServicioVentasInterface;
 
 public class ServicioMercanciasImpl extends UnicastRemoteObject implements ServicioMercanciasInterface {
 
 	private static final long serialVersionUID = 1L;
 
-	private ServicioAutenticacionInterface servicioAutenticacionInterface;
-
-	// atributos para buscar el servicio Servidor Operador del Distribuidor
 	private static int puerto = 7791;
-	// private static ServicioSrOperadorInterface servidorSrOperador;
 	private static String direccion = "localhost";
-	private static String nombreSrOperador = "sroperador";
-	private static String autenticador;
 
-	// Estructuras que mantienen las autenticaciones VOLATILES
-	private Map<Integer, String> sesionDistribuidorAutenticado = new HashMap<Integer, String>();
-	private Map<Integer, String> distribuidorSesionAutenticado = new HashMap<Integer, String>();
-
-	// Estructuras que mantiene el almacen de Clientes y Distribuidors registrados
-	// PERSISTENTES
-	private Map<Integer, String> almacenIdCliente = new HashMap<Integer, String>();
+	// Listas Distribuidores
+	private Map<Integer, String> distribuidoresRegistrados = new HashMap<Integer, String>();
+	private Map<Integer, String> distribuidoresAutenticados = new HashMap<Integer, String>();
 	private Map<String, Integer> distribuidorNombre = new HashMap<String, Integer>();
 	private Map<String, String> distribuidorPassword = new HashMap<String, String>();
-	private Map<Integer, Integer> almacenClienteDistribuidor = new HashMap<Integer, Integer>();
 
 	private List<String> listMercancias = new ArrayList<>();
 
+	// Listas ofertas
 	private Map<Integer, Integer> listaOfertaSesion = new HashMap<Integer, Integer>();
 	private Map<String, Integer> listaNombreOfertas = new HashMap<String, Integer>();
 	private Map<Integer, String> tipoMercanciaOferta = new HashMap<Integer, String>();
 	private Map<Integer, Float> precioMercanciaOferta = new HashMap<Integer, Float>();
 	private Map<Integer, Float> kilosMercanciaOferta = new HashMap<Integer, Float>();
 
+	// Listas Demandas
 	private Map<Integer, Integer> listaDemandaSesion = new HashMap<Integer, Integer>();
 	private Map<String, Integer> listaDemandas = new HashMap<String, Integer>();
 	private Map<Integer, String> tipoMercanciaDemanda = new HashMap<Integer, String>();
 	private Map<Integer, Float> kilosMercanciaDemanda = new HashMap<Integer, Float>();
 
+	// Listas Compras
 	private Map<Integer, Integer> listaCompras = new HashMap<Integer, Integer>();
 	private Map<Integer, Integer> listaCompraSesionCliente = new HashMap<Integer, Integer>();
-	private Map<Integer, Integer> listaOfertaSesionCliente = new HashMap<Integer, Integer>();
+	private Map<Integer, Integer> listaOfertasCompra = new HashMap<Integer, Integer>();
 
 	private int idSesionDistribuidor;
 
-	private float kilosOfertados;
-
-	private float kilosDemandados;
-
-	private String nombreCliente;
-
-	private String tipo;
-
-	private float kilos;
-
 	private String nombreDistribuidor;
 
-	private String nombreOferta;
+	private String autenticador;
 
-	private float precioOferta;
-
-	private Integer idSesionCliente;
-
-	// Metodos
 	/**
-	 * Contructor necesario al extender UnicastRemoteOBject y poder utilizar Naming
+	 * Constructor por defecto
 	 * 
 	 * @throws RemoteException
 	 */
-
 	protected ServicioMercanciasImpl() throws RemoteException {
 		super();
 		autenticador = "rmi://" + direccion + ":" + puerto + "/autenticador";
 
 		cargarTiposMercanciaInicial();
-		cargarBaseDatosMercancia();
 	}
 
 	/**
@@ -122,62 +89,55 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 		System.out.println("Cargar tipo de mercancías. Resultado: " + Resultado.SUCCESSFUL.getResultado());
 	}
 
-	public void cargarBaseDatosMercancia() {
-
-		Map<Integer, String> mercanciaMap = new HashMap<>();
-		System.out.println("Cargado de tablas. Resultado: " + Resultado.SUCCESSFUL.getResultado());
-
-	}
-
 	/**
-	 * autentica un Distribuidor
+	 * Método para autenticar a un Distribuidor
 	 * 
-	 * @param String
-	 *            el nombre del Distribuidor
-	 * @param int
-	 *            el idsesion que le pasamos
-	 * @return int -1 si la repo no estra registrada, 0 si ya esta autenticado, el
-	 *         idsesion si es correcto
+	 * @param nombre
+	 * @param sesion
+	 * @param password
+	 * @return
+	 * @throws RemoteException
 	 */
 	@Override
 	public int autenticarDistribuidor(String nombre, int idSesion, String password) throws RemoteException {
 
-		if (distribuidorSesionAutenticado.containsKey(nombre)) {
+		if (distribuidoresAutenticados.containsKey(nombre)) {
 			return -1; // ya esta autenticado
 		}
 
 		else { // Se comprueba que se ha logueado correctamente el usuario
 			String passwordAlmacenada = distribuidorPassword.get(nombre);
 			if (distribuidorNombre.containsKey(nombre) && password.equals(passwordAlmacenada)) {
-
-				// No tenemos por que cambiar la sesión basta con recuerar la que ya tenía
-				// cuando se registró por primera vez
-				Integer idSesionRegistrada = distribuidorNombre.get(nombre);
-				idSesionDistribuidor = idSesionRegistrada;
-				distribuidorSesionAutenticado.put(idSesionDistribuidor, nombre);
-				sesionDistribuidorAutenticado.put(idSesionDistribuidor, nombre);
-
+				distribuidoresAutenticados.put(idSesion, nombre);
 				return 1;
 			} else
 				return 0;// No se ha introducido un usuario o contraseña correctos
 		}
 	}
 
-	private int getIdSesionDistribuidor() {
+	/**
+	 * Pregunta por el id de sesión del distribuidor actual
+	 * 
+	 * @return
+	 * @throws MalformedURLException
+	 * @throws RemoteException
+	 * @throws NotBoundException
+	 */
+	@Override
+	public int getIdSesionDistribuidor() {
 
 		return idSesionDistribuidor;
 
 	}
 
 	/**
-	 * registra un repositiorio
+	 * Método para registrar un Distribuidor
 	 * 
-	 * @param String
-	 *            el nombre del Distribuidor
-	 * @param int
-	 *            el id sesion del Distribuidor
-	 * @return int 0 si ya esta registrada con ese nombre, el id sesion en caso
-	 *         contrario
+	 * @param nombre
+	 * @param sesion
+	 * @param password
+	 * @return
+	 * @throws RemoteException
 	 */
 	@Override
 	public int registrarDistribuidor(String nombre, int id, String password) throws RemoteException {
@@ -187,17 +147,16 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 		else {
 			distribuidorNombre.put(nombre, id);
 			distribuidorPassword.put(nombre, password);
-			sesionDistribuidorAutenticado.put(id, nombre);
+			distribuidoresRegistrados.put(id, nombre);
 		}
 		return id;
 	}
 
 	/**
-	 * devuelve un String con los emparejameintos entre clientes y repos recordemos
-	 * un lciente solo esta en una repo se devulve el ide cliente el id repositiorio
-	 * el nombre cliente y el nombre de la repo
+	 * Método para generar la lista de productos
 	 * 
-	 * @return la lsita de las parejas
+	 * @return
+	 * @throws RemoteException
 	 */
 	@Override
 	public String listaTipoProductos() {
@@ -207,52 +166,17 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 	}
 
 	/**
-	 * borra la entrada de sesion de una repo, es decir desconecta la repo
+	 * Método para registrar una oferta
 	 * 
-	 * @param int
-	 *            el id sesion de la repo
-	 * @return String el nombre de la repo desconectada
+	 * @param tipo
+	 * @param precio
+	 * @param kilos
+	 * @param nombre
+	 * @return
+	 * @throws RemoteException
+	 * @throws MalformedURLException
+	 * @throws NotBoundException
 	 */
-	@Override
-	public String desconectarDistribuidor(int sesion) throws RemoteException {
-		String repo = sesionDistribuidorAutenticado.get(sesion);
-		sesionDistribuidorAutenticado.remove(sesion);
-		distribuidorSesionAutenticado.remove(repo);
-		return repo;
-	}
-
-	/**
-	 * busca la priemra repo online que encuentra y devulve su id unico
-	 * 
-	 * @return int el id unico de la primera repo online encontrada
-	 */
-	public int dameDistribuidor() {
-		if (distribuidorSesionAutenticado.isEmpty()) {
-			return 0;
-		} else {
-			Iterator it = distribuidorSesionAutenticado.entrySet().iterator();
-			String nombre = "";
-			if (it.hasNext()) {
-				Map.Entry e = (Map.Entry) it.next();
-				nombre = (String) e.getKey();
-			}
-			return distribuidorNombre.get(nombre);
-		}
-	}
-
-	/**
-	 * devuelve el Distribuidor de un cliente
-	 * 
-	 * @param int
-	 *            el id unico del cliente
-	 * @return int el id sesion de la repo
-	 */
-	@Override
-	public int dimeDistribuidor(int idCliente) {
-		return Integer.parseInt(distribuidorSesionAutenticado
-				.get(sesionDistribuidorAutenticado.get(almacenClienteDistribuidor.get(idCliente))));
-	}
-
 	@Override
 	public int registrarOferta(String tipo, String precio, String kilos, String nombre)
 			throws RemoteException, MalformedURLException, NotBoundException {
@@ -273,6 +197,16 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 		}
 	}
 
+	/**
+	 * Quita una oferta de los registros
+	 * 
+	 * @param idOferta
+	 * @return
+	 * @throws RemoteException
+	 * @throws MalformedURLException
+	 * @throws NotBoundException
+	 */
+	@SuppressWarnings("rawtypes")
 	@Override
 	public int quitarOferta(int idOferta) throws RemoteException, MalformedURLException, NotBoundException {
 
@@ -307,7 +241,7 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 		// ITERATOR TIPO MERCANCÍA
 		while (tipoMercanciaIterator.hasNext()) {
 			Entry entry = (Entry) tipoMercanciaIterator.next();
-			Integer idSesion = Integer.parseInt(entry.getValue().toString());
+			Integer idSesion = Integer.parseInt(entry.getKey().toString());
 
 			if (idSesion.equals(idOferta))
 				tipoMercanciaIterator.remove();
@@ -316,7 +250,7 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 		// ITERATOR PRECIO MERCANCÍA
 		while (precioMercanciaIterator.hasNext()) {
 			Entry entry = (Entry) precioMercanciaIterator.next();
-			Integer idSesion = Integer.parseInt(entry.getValue().toString());
+			Integer idSesion = Integer.parseInt(entry.getKey().toString());
 
 			if (idSesion.equals(idOferta))
 				precioMercanciaIterator.remove();
@@ -326,7 +260,7 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 		// ITERATOR KILOS MERCANCÍA
 		while (kilosMercanciaIterator.hasNext()) {
 			Entry entry = (Entry) kilosMercanciaIterator.next();
-			Integer idSesion = Integer.parseInt(entry.getValue().toString());
+			Integer idSesion = Integer.parseInt(entry.getKey().toString());
 
 			if (idSesion.equals(idOferta))
 				kilosMercanciaIterator.remove();
@@ -334,18 +268,17 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 		}
 
 		return 1;
-
 	}
-	// // Nos basta con saber si se encuentra en nombre en nuestra base de datos
-	// if (!listMercancias.contains(tipo))
-	// return 0; // Si el producto escrito no corresponde con los tipos registrados
-	// no regista la
-	// // oferta
-	// else {
-	// tipoMercancia.put(tipo, idOferta);
-	// precioMercancia.put(Float.parseFloat(precio), idOferta);
-	// kilosMercancia.put(Float.parseFloat(kilos), idOferta);
 
+	/**
+	 * Lista las ofertas por sesisión, en algunos casos no nos interesa mostrar
+	 * todas
+	 * 
+	 * @return
+	 * @throws RemoteException
+	 * @throws MalformedURLException
+	 * @throws NotBoundException
+	 */
 	@Override
 	public Map<String, Integer> getListarOfertasPorSesion()
 			throws RemoteException, MalformedURLException, NotBoundException {
@@ -362,97 +295,141 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 		return nuevaListaOfertas;
 	}
 
+	/**
+	 * Lista de los distribuidores
+	 * 
+	 * @throws RemoteException
+	 * @throws MalformedURLException
+	 * @throws NotBoundException
+	 */
 	@Override
-	public int listarDistribuidores() throws RemoteException, MalformedURLException, NotBoundException {
-		try {
-			System.out.println("********LISTA DISTRIBUIDORES*********\n");
+	public void listarDistribuidores() throws RemoteException, MalformedURLException, NotBoundException {
 
-			for (Map.Entry<String, Integer> entry : distribuidorNombre.entrySet()) {
-				String nombre = entry.getKey();
-				Integer id = entry.getValue();
+		if (!distribuidorNombre.isEmpty()) {
+			try {
+				System.out.println(
+						"==================================\n********LISTA DISTRIBUIDORES*********\n==================================\n");
+				for (Map.Entry<String, Integer> entry : distribuidorNombre.entrySet()) {
+					String nombre = entry.getKey();
+					Integer id = entry.getValue();
 
-				System.out.println("Cliente: " + nombre + " -> " + id);
+					System.out.println(nombre + " -> " + id);
 
+				}
+				System.out.println(
+						"\n==================================\n**********************************\n==================================\n");
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
-			System.out.println("\n****************************************\n");
-			return 1;
-		} catch (Exception e) {
-			e.printStackTrace();
-			return 0;
+		} else {
+			System.out.println("No se encuentras distribuidores registrados actualmente");
 		}
 	}
 
+	/**
+	 * Lista de las ofertas
+	 * 
+	 * @throws RemoteException
+	 * @throws MalformedURLException
+	 * @throws NotBoundException
+	 */
 	@Override
-	public int listarOfertas() throws RemoteException, MalformedURLException, NotBoundException {
-		try {
-			System.out.println("********OFERTAS DISPONIBLES*********\n");
+	public void listarOfertas() throws RemoteException, MalformedURLException, NotBoundException {
 
-			for (Map.Entry<String, Integer> entry : listaNombreOfertas.entrySet()) {
-				String nombre = entry.getKey();
-				Integer id = entry.getValue();
+		if (!listaNombreOfertas.isEmpty()) {
+			try {
+				System.out.println("********OFERTAS DISPONIBLES*********\n");
 
-				String tipo = null;
-				for (Map.Entry<Integer, String> tipoMercancia : tipoMercanciaOferta.entrySet()) {
-					if (tipoMercancia.getKey().equals(id)) {
-						tipo = tipoMercancia.getValue();
+				for (Map.Entry<String, Integer> entry : listaNombreOfertas.entrySet()) {
+					String nombre = entry.getKey();
+					Integer id = entry.getValue();
+
+					String tipo = null;
+					for (Map.Entry<Integer, String> tipoMercancia : tipoMercanciaOferta.entrySet()) {
+						if (tipoMercancia.getKey().equals(id)) {
+							tipo = tipoMercancia.getValue();
+						}
 					}
-				}
 
-				float kilos = 0;
-				for (Map.Entry<Integer, Float> kilosMercancia : kilosMercanciaOferta.entrySet()) {
-					if (kilosMercancia.getKey().equals(id)) {
-						kilos = Float.parseFloat(kilosMercancia.getValue().toString());
+					float kilos = 0;
+					for (Map.Entry<Integer, Float> kilosMercancia : kilosMercanciaOferta.entrySet()) {
+						if (kilosMercancia.getKey().equals(id)) {
+							kilos = Float.parseFloat(kilosMercancia.getValue().toString());
+						}
 					}
+
+					System.out.println(nombre + ": " + "\n" + "\tTipo mercancia -> " + tipo + "\n\tKilos ofertados: "
+							+ kilos + "\n\tId -> " + id);
+
 				}
-
-				System.out.println(nombre + ": " + "\n" + "\tTipo mercancia -> " + tipo + "\n\tKilos ofertados: "
-						+ kilos + "\n\tId -> " + id);
-
+				System.out.println(
+						"\n==================================\n**********************************\n==================================\n");
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
-			System.out.println("\n**********************************\n");
-			return 1;
-		} catch (Exception e) {
-			e.printStackTrace();
-			return 0;
+		} else {
+			System.out.println("No se encuentran ofertas actualmente");
 		}
 	}
 
+	/**
+	 * Lista las demandas
+	 * 
+	 * @throws RemoteException
+	 * @throws MalformedURLException
+	 * @throws NotBoundException
+	 */
 	@Override
-	public int listarDemandas() throws RemoteException, MalformedURLException, NotBoundException {
+	public void listarDemandas() throws RemoteException, MalformedURLException, NotBoundException {
 
-		try {
-			System.out.println("********DEMANDAS DISPONIBLES*********\n");
+		if (!listaDemandas.isEmpty()) {
+			try {
+				System.out.println(
+						"==================================\n********DEMANDAS DISPONIBLES******\n==================================\n");
+				for (Map.Entry<String, Integer> entry : listaDemandas.entrySet()) {
 
-			for (Map.Entry<String, Integer> entry : listaDemandas.entrySet()) {
+					String nombre = entry.getKey();
+					Integer id = entry.getValue();
 
-				String nombre = entry.getKey();
-				Integer id = entry.getValue();
-
-				String tipo = null;
-				for (Map.Entry<Integer, String> tipoMercancia : tipoMercanciaDemanda.entrySet()) {
-					if (tipoMercancia.getKey().equals(id)) {
-						tipo = tipoMercancia.getValue();
+					String tipo = null;
+					for (Map.Entry<Integer, String> tipoMercancia : tipoMercanciaDemanda.entrySet()) {
+						if (tipoMercancia.getKey().equals(id)) {
+							tipo = tipoMercancia.getValue();
+						}
 					}
-				}
 
-				float kilos = 0;
-				for (Map.Entry<Integer, Float> kilosMercancia : kilosMercanciaDemanda.entrySet()) {
-					if (kilosMercancia.getKey().equals(id)) {
-						kilos = Float.parseFloat(kilosMercancia.getValue().toString());
+					float kilos = 0;
+					for (Map.Entry<Integer, Float> kilosMercancia : kilosMercanciaDemanda.entrySet()) {
+						if (kilosMercancia.getKey().equals(id)) {
+							kilos = Float.parseFloat(kilosMercancia.getValue().toString());
+						}
 					}
-				}
 
-				System.out.println(nombre + ": " + "\n" + "\tTipo mercancia -> " + tipo + "\n\tKilos pedidos: " + kilos
-						+ "\n\tId -> " + id);
+					System.out.println(nombre + ": " + "\n" + "\tTipo mercancia -> " + tipo + "\n\tKilos pedidos: "
+							+ kilos + "\n\tId -> " + id);
+				}
+				System.out.println(
+						"\n==================================\n**********************************\n==================================\n");
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
-			System.out.println("\n**********************************\n");
-			return 1;
-		} catch (Exception e) {
-			e.printStackTrace();
-			return 0;
+		} else {
+			System.out.println("No se encuentran demandas actualmente");
 		}
 	}
 
+	/**
+	 * Registra las demandas
+	 * 
+	 * @param tipo
+	 * @param kilos
+	 * @param nombre
+	 * @param idSesionCliente
+	 * @return
+	 * @throws RemoteException
+	 * @throws MalformedURLException
+	 * @throws NotBoundException
+	 */
 	@Override
 	public int registrarDemanda(String tipo, String kilos, String nombre, int idSesionCliente)
 			throws RemoteException, MalformedURLException, NotBoundException {
@@ -471,20 +448,34 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 		}
 	}
 
+	/**
+	 * Nombre de los clientes
+	 */
 	@Override
-	public int comprarMercancia(int idDemanda, int idOferta, int idSesionCliente)
-			throws RemoteException, MalformedURLException, NotBoundException {
+	public Map<Integer, String> getMapNombresClientes()
+			throws MalformedURLException, RemoteException, NotBoundException {
+		String URLRegistro = "rmi://localhost:7791/cliente";// RMI
+		ServicioVentasInterface servicioClienteInterface = (ServicioVentasInterface) Naming.lookup(URLRegistro);
+
+		return servicioClienteInterface.getClientesAutenticados();
+	}
+
+	@Override
+	public int comprarMercancia(int idSesionCliente, int idDemanda, int idOferta)
+			throws MalformedURLException, RemoteException, NotBoundException {
+
 		// Generamos un nuevo id para la compra
 		int idCompra = RandomSessionNumber.generateSessionId();
 
 		// Primero comprobamos que el cliente puede ejecutar la demanda, hay que
 		// comprobar si existe un numero suficiente de kilos en la oferta
-
 		for (Map.Entry<Integer, Float> kilosMercanciaOfertados : kilosMercanciaOferta.entrySet()) {
+			Float kilosOfertados = null;
 			if (kilosMercanciaOfertados.getKey().equals(idOferta)) {
 				kilosOfertados = kilosMercanciaOfertados.getValue();
 			}
 
+			Float kilosDemandados = null;
 			for (Map.Entry<Integer, Float> kilosMercanciaDemandada : kilosMercanciaDemanda.entrySet()) {
 				if (kilosMercanciaDemandada.getKey().equals(idDemanda)) {
 					kilosDemandados = kilosMercanciaDemandada.getValue();
@@ -495,12 +486,12 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 				return 0;
 			} else if (kilosOfertados >= kilosDemandados) {
 				// Añadimos un nuevo map con el registro de la compra
-				listaCompraSesionCliente.put(idDemanda, idSesionCliente);
-				// Añadimos un nuevo map con la oferta que ha registrado el cliente
-				listaOfertaSesionCliente.put(idOferta, idSesionCliente);
+				listaCompraSesionCliente.put(idCompra, idSesionCliente);
 
 				// Añadimos un nuevo registro de una venta
-				listaCompras.put(idOferta, idDemanda);
+				listaCompras.put(idCompra, idDemanda);
+
+				listaOfertasCompra.put(idCompra, idOferta);
 
 				// Actualizamos los kilos en la oferta elegida
 				kilosMercanciaOferta.put(idOferta, (kilosOfertados - kilosDemandados));
@@ -509,103 +500,122 @@ public class ServicioMercanciasImpl extends UnicastRemoteObject implements Servi
 				return -1;
 		}
 		return idCompra;
+
+	}
+
+	/**
+	 * Da de baja un Distribuidor
+	 * 
+	 * @param sesionDistribuidor
+	 * @return
+	 * @throws MalformedURLException
+	 * @throws RemoteException
+	 * @throws NotBoundException
+	 */
+	@Override
+	public String darDeBajaDistribuidor(int sesionDistribuidor)
+			throws MalformedURLException, RemoteException, NotBoundException {
+
+		// ITERATOR DISTRIBUIDORES AUTENTICADOS
+		for (Iterator<Map.Entry<Integer, String>> it = distribuidoresAutenticados.entrySet().iterator(); it
+				.hasNext();) {
+			Map.Entry<Integer, String> entry = it.next();
+			if (entry.getKey().equals(sesionDistribuidor)) {
+				nombreDistribuidor = entry.getValue();
+				it.remove();
+			}
+		}
+
+		// ITERATOR DISTRIBUIDORES NOMBRE
+		for (Iterator<Map.Entry<String, Integer>> it = distribuidorNombre.entrySet().iterator(); it.hasNext();) {
+			Map.Entry<String, Integer> entry = it.next();
+			if (entry.getValue().equals(sesionDistribuidor)) {
+				it.remove();
+			}
+		}
+
+		// ITERATOR DISTRIBUIDORES PASSWORD
+		for (Iterator<Map.Entry<String, String>> it = distribuidorPassword.entrySet().iterator(); it.hasNext();) {
+			Map.Entry<String, String> entry = it.next();
+			if (entry.getKey().equals(nombreDistribuidor)) {
+				it.remove();
+			}
+		}
+
+		// ITERATOR DISTRIBUIDORES REGISTRADOS
+		for (Iterator<Map.Entry<Integer, String>> it = distribuidoresRegistrados.entrySet().iterator(); it.hasNext();) {
+			Map.Entry<Integer, String> entry = it.next();
+			if (entry.getKey().equals(sesionDistribuidor)) {
+				it.remove();
+			}
+		}
+
+		return nombreDistribuidor;
 	}
 
 	@Override
-	public int listarVentasPorDistribuidor() throws MalformedURLException, RemoteException, NotBoundException {
-
-		Integer idNuevaDemanda = null;
-		Integer idNuevaOferta = null;
-		float dineroTotalRecaudado = 0;
-
-		try {
-			System.out.println(
-					"==================================\n********VENTAS REALIZADAS*********\n==================================\n");
-
-			for (Map.Entry<Integer, Integer> listaVentas : listaCompras.entrySet()) {
-
-				idNuevaOferta = listaVentas.getKey();
-				idNuevaDemanda = listaVentas.getValue();
-
-				for (Map.Entry<Integer, Integer> relacionClienteOferta : listaOfertaSesionCliente.entrySet()) {
-
-					if (relacionClienteOferta.getKey().equals(idNuevaOferta))
-						idSesionCliente = relacionClienteOferta.getValue();
-
-				}
-
-				// NOMBRE DEL CLIENTE
-				for (Map.Entry<Integer, String> nombreClientes : getMapNombresClientes().entrySet()) {
-					if (nombreClientes.getKey().equals(idSesionCliente)) {
-						nombreCliente = nombreClientes.getValue();
-					}
-				}
-
-				// NOMBRE DISTRIBUIDOR
-				for (Map.Entry<Integer, String> nombreDistribuidores : distribuidorSesionAutenticado.entrySet()) {
-					if (nombreDistribuidores.getKey().equals(getIdSesionDistribuidor())) {
-						nombreDistribuidor = nombreDistribuidores.getValue();
-					}
-				}
-
-				// TIPO DE PRODUCTO COMPRADO
-				for (Map.Entry<Integer, String> tipoProductos : tipoMercanciaOferta.entrySet()) {
-					if (tipoProductos.getKey().equals(idNuevaOferta)) {
-						tipo = tipoProductos.getValue();
-					}
-				}
-
-				// KILOS DEMANDADOS
-				for (Map.Entry<Integer, Float> kilosDemandados : kilosMercanciaDemanda.entrySet()) {
-					if (kilosDemandados.getKey().equals(idNuevaDemanda)) {
-						kilos = kilosDemandados.getValue();
-					}
-				}
-
-				// NOMBRE OFERTA
-				for (Map.Entry<String, Integer> nombreOfertas : listaNombreOfertas.entrySet()) {
-					if (nombreOfertas.getValue().equals(idNuevaOferta)) {
-						nombreOferta = nombreOfertas.getKey();
-					}
-				}
-
-				// PRECIO OFERTA
-				for (Map.Entry<Integer, Float> precioOfertas : precioMercanciaOferta.entrySet()) {
-					if (precioOfertas.getKey().equals(idNuevaOferta)) {
-						precioOferta = precioOfertas.getValue();
-					}
-				}
-
-				float dineroReaudado = precioOferta * kilosDemandados;
-				dineroTotalRecaudado += dineroReaudado;
-
-				System.out.println("Cliente: " + nombreCliente + ": " + "\n" + "\tTipo mercancia -> " + tipo
-						+ "\n\tKilos demandados: " + kilos + "\n\tNombre del Distribuidor: " + nombreDistribuidor
-						+ "\n\tOferta realizada: " + nombreOferta + " (" + precioOferta + " €/Kg" + ")"
-						+ "\n\tDinero recaudado: " + dineroReaudado + "€");
-				System.out.println("\n********************************\n");
-			}
-
-			System.out.println("Dinero Total Recaudado: " + dineroTotalRecaudado + "€");
-
-			System.out.println(
-					"\n==================================\n**********************************\n==================================\n");
-
-			return 1;
-
-		} catch (
-
-		Exception e) {
-			e.printStackTrace();
-			return 0;
-		}
+	public Map<Integer, String> getDistribuidoresAutenticados() {
+		return distribuidoresAutenticados;
 	}
 
-	private Map<Integer, String> getMapNombresClientes()
-			throws MalformedURLException, RemoteException, NotBoundException {
-		String URLRegistro = "rmi://localhost:7791/cliente";// RMI
-		ServicioClienteInterface servicioClienteInterface = (ServicioClienteInterface) Naming.lookup(URLRegistro);
-
-		return servicioClienteInterface.getMapClientes();
+	@Override
+	public Map<Integer, String> getTipoMercanciaOferta() {
+		return tipoMercanciaOferta;
 	}
+
+	@Override
+	public Map<Integer, Integer> getListaCompras() {
+		return listaCompras;
+	}
+
+	@Override
+	public Map<Integer, Integer> getListaOfertasCompra() {
+		return listaOfertasCompra;
+	}
+
+	@Override
+	public Map<String, Integer> getListaNombreOfertas() {
+		return listaNombreOfertas;
+	}
+
+	@Override
+	public Map<Integer, Float> getPrecioMercanciaOferta() {
+		return precioMercanciaOferta;
+	}
+
+	@Override
+	public Map<Integer, Float> getKilosMercanciaDemanda() {
+		return kilosMercanciaDemanda;
+	}
+
+	@Override
+	public Map<Integer, Float> getKilosMercanciaOferta() {
+		return kilosMercanciaOferta;
+	}
+
+	@Override
+	public Map<String, Integer> getListaDemandas() {
+		return listaDemandas;
+	}
+
+	@Override
+	public Map<Integer, String> getTipoMercanciaDemanda() {
+		return tipoMercanciaDemanda;
+	}
+
+	@Override
+	public Map<String, Integer> getDistribuidorNombre() {
+		return distribuidorNombre;
+	}
+
+	@Override
+	public Map<String, String> getDistribuidorPassword() {
+		return distribuidorPassword;
+	}
+
+	@Override
+	public Map<Integer, Integer> getListaCompraSesionCliente() {
+		return listaCompraSesionCliente;
+	}
+
 }

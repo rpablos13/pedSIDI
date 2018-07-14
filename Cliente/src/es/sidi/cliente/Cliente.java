@@ -1,7 +1,5 @@
 /**
  * Funciones del Cliente:
-
-
  * 
  * 1. Introducir demanda
  * 2. Recibir ofertas
@@ -18,66 +16,43 @@ import java.rmi.ConnectException;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.util.List;
+import java.util.Map;
 
 import es.sidi.common.Interfaz;
 import es.sidi.common.Resultado;
 import es.sidi.common.ServicioAutenticacionInterface;
-import es.sidi.common.ServicioClienteInterface;
-import es.sidi.common.ServicioGestorInterface;
 import es.sidi.common.ServicioMercanciasInterface;
 import es.sidi.common.ServicioVentasInterface;
-import es.sidi.common.Utils;
 
 public class Cliente {
 
 	private static int estado = 0;
 
-	// atributos para buscar los servicios del servidor
-	private static int puertoAutenticador = 7791;
 	private static Registry registryServicio;
 	private static ServicioAutenticacionInterface servicioAutenticacionInterface;
 	private static String direccion = "localhost";
 
-	// aqui se van a guardar las URL rmi
 	private static String autenticador;
 	private static String mercancias;
 	private static String cliente;
 
-	private static String discocliente;
-
-	@SuppressWarnings("unused")
-	private static String nombre = ""; // el nombre del cliente de autenticado
-
-	// atributos para levantar el servicio DiscoCliente
-	// es de suponer que esto es necesario ya que puede ejecutarse
-	// en otra maquina tendriamos que saber la ip nuestra
-	// y cambiarla por la direccionServicio
-	private static int puertoMercancias = 7791;
-	private static ServicioMercanciasInterface servicioMercanciasInterface;
-
-	private static int puertoCliente = 7791;
-	private static ServicioClienteInterface servicioClienteInterface;
+	private static int puerto = 7791;
 
 	/**
-	 * main del cliente, generas las URL usadas en el programa
+	 * este método se ejecuta al iniciar esta clase
 	 * 
 	 * @param args
 	 * @throws Exception
 	 */
 	public static void main(String[] args) throws Exception {
 
-		// vamos a crear aqui las direcciones, que por supuesto podriamos leerlas por
-		// teclado, desde un fichero de configuracion
-		// o bien pasarselas al jar
-		autenticador = "rmi://" + direccion + ":" + puertoAutenticador + "/autenticador";
-		mercancias = "rmi://" + direccion + ":" + puertoMercancias + "/mercancia";
-		cliente = "rmi://" + direccion + ":" + puertoCliente + "/cliente";
+		// Leemos e iniciamos los servicios pertinentes
+		autenticador = "rmi://" + direccion + ":" + puerto + "/autenticador";
+		mercancias = "rmi://" + direccion + ":" + puerto + "/mercancia";
+		cliente = "rmi://" + direccion + ":" + puerto + "/cliente";
 
 		new Cliente().iniciar();
-		System.exit(0);// fin del programa,return o nada deja abierto el programa
 	}
 
 	/**
@@ -88,8 +63,8 @@ public class Cliente {
 	 * @throws MalformedURLException
 	 */
 	private static void registrar() throws RemoteException, MalformedURLException, NotBoundException {
-		String nombre = Interfaz.pideDato("Nombre: ");
-		String password = Interfaz.pideDato("Contraseña: ");
+		String nombre = Interfaz.preguntaUsuario("Nombre: ");
+		String password = Interfaz.preguntaUsuario("Contraseña: ");
 
 		if (servicioAutenticacionInterface.registrarCliente(nombre, password) != 0)
 			System.out.println("Registro del Cliente. Resultado: " + Resultado.SUCCESSFUL.getResultado());
@@ -116,8 +91,8 @@ public class Cliente {
 			// mostramos menu de acceso
 			int opcion = 0;
 			do {
-				opcion = Interfaz.menu("Acceso de Cliente",
-						new String[] { "Registrar un nuevo usuario", "Autenticarse en el sistema(hacer login)" });
+				opcion = Interfaz.menu("Acceso de Cliente", new String[] { "Registrar un nuevo usuario",
+						"Autenticarse en el sistema(hacer login)", "Salir" });
 
 				switch (opcion) {
 				case 1:
@@ -130,7 +105,7 @@ public class Cliente {
 			} while (opcion != 3);
 		} catch (ConnectException e) {
 			System.out.println("Error de conexion, el servidor no esta disponible, vuelva a intentarlo mas tarde");
-			String st = Interfaz.pideDato("Pulse enter para finalizar...");
+			String st = Interfaz.preguntaUsuario("Pulse enter para finalizar...");
 		}
 
 	}
@@ -143,84 +118,33 @@ public class Cliente {
 	 */
 	private void autenticar() throws Exception {
 
-		String nombre = Interfaz.pideDato("Nombre: ");
-		String password = Interfaz.pideDato("Password: ");
+		String nombre = Interfaz.preguntaUsuario("Nombre: ");
+		String password = Interfaz.preguntaUsuario("Password: ");
 		estado = servicioAutenticacionInterface.autenticarCliente(nombre, password);
 		switch (estado) {
 
 		case 1:
-			Interfaz.imprime("Cliente " + nombre + " logueado correctamente");
-			nuevoMenuClientes();
+			System.out.println("Cliente " + nombre + " logueado correctamente");
+			nuevoMenu();
 			break;
 		case 0:
-			Interfaz.imprime("Usuario o contraseña no válidos");
+			System.out.println("Usuario o contraseña no válidos");
 			break;
 		default:
-			Interfaz.imprime("El cliente " + nombre + " ya se encuentra logueado");
+			System.out.println("El cliente " + nombre + " ya se encuentra logueado");
 		}
-	}
-
-	/**
-	 * solicita la desconexion
-	 * 
-	 * @throws RemoteException
-	 */
-	private void desconectar() throws RemoteException {
-		servicioAutenticacionInterface.desconectarCliente(estado);
-		// si ponemos a 0 la sesion aqui el unbind fallara
-		// miSesion=0;
-	}
-
-	/**
-	 * levanta el Registry y el servicio Discocliente con el id sesion actual
-	 * muestra los servicios colgados (los discocliente de todos los clientes) tiene
-	 * que cerrar tambien los servicios cuando se sale del menu de Servicio
-	 * 
-	 * @throws Exception
-	 */
-	private void nuevoMenuClientes() throws Exception {
-		String URLRegistro = cliente;
-		arrancarRegistro(puertoCliente);
-		// cuidado con la linea siguiente
-		Utils.setCodeBase(ServicioVentasInterface.class);
-
-		menuServicio();
-
-		// // eliminar Servidor-Operador
-		// System.out.println("Operacion: Servicio Disco Cliente cerrandose...");
-		// try {
-		// URLRegistro = discocliente + estado;// RMI
-		// Naming.unbind(URLRegistro);
-		// System.out.println("Operacion: Servicio Disco Cliente cerrado con exito");
-		//
-		// // cerrar rmiregistry del objeto registry unico
-		// if (estaVacioRegistry(discocliente)) { // RMI
-		// UnicastRemoteObject.unexportObject(registryServicio, true);
-		// System.out.println("Operacion: Registry cerrado con exito");
-		// } else
-		// System.out.println("Operacion: Registry todavia esta abierto porque quedan
-		// clientes conectados");
-		//
-		// } catch (NoSuchObjectException e) {
-		// System.out.println("No se ha podido cerrar el registro, se ha forzado el
-		// cierre");
-		// }
-		// estado = 0;
-
 	}
 
 	/**
 	 * Proporciona un menu mediante un bucle de espera
 	 * 
-	 * @throws RemoteException
-	 * @throws MalformedURLException
-	 * @throws NotBoundException
+	 * @throws Exception
 	 */
-	private void menuServicio() throws RemoteException, MalformedURLException, NotBoundException {
+	private void nuevoMenu() throws Exception {
 		int opcion = 0;
 		do {
-			opcion = Interfaz.menu("Operaciones de Cliente",
-					new String[] { "Introducir demanda", "Recibir ofertas", "Comprar mercancía", "Dar de baja" });
+			opcion = Interfaz.menu("Operaciones de Cliente", new String[] { "Introducir demanda", "Recibir ofertas",
+					"Comprar mercancía", "Dar de baja", "Salir" });
 			switch (opcion) {
 
 			case 1:
@@ -235,13 +159,9 @@ public class Cliente {
 			case 4:
 				darDeBaja();
 				break;
-			case 5:
-				salir();
-				break;
 			}
-		} while (opcion != 6);
-
-		desconectar();
+		} while (opcion != 5);
+		System.exit(0);
 	}
 
 	/**
@@ -253,30 +173,6 @@ public class Cliente {
 	 * @throws NotBoundException
 	 */
 	private void listarClientes() throws MalformedURLException, RemoteException, NotBoundException {
-		String URLRegistro = cliente;// RMI
-		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
-
-		String lista = servicioGestor.listarClientes();
-		System.out.println(lista);
-
-	}
-
-	/**
-	 * Muestra los ficheros(compartidos incluidos) que tiene este cliente
-	 * 
-	 * @throws MalformedURLException
-	 * @throws RemoteException
-	 * @throws NotBoundException
-	 */
-	private void salir() throws MalformedURLException, RemoteException, NotBoundException {
-
-		String URLRegistro = cliente;// RMI
-		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
-
-		// el servicio Gestor solo necesita el id de la sesion del cliente para saber
-		// quien es
-		List<String> lista = servicioGestor.listarFicherosCliente(estado);
-		System.out.println(lista);
 
 	}
 
@@ -284,33 +180,31 @@ public class Cliente {
 	 * comparte un fichero, pidiendo el id del fichero y el nombre a quien se
 	 * compartira
 	 * 
-	 * @throws MalformedURLException
-	 * @throws RemoteException
-	 * @throws NotBoundException
+	 * @throws Exception
 	 */
-	private void darDeBaja() throws MalformedURLException, RemoteException, NotBoundException {
-		salir();
-		String s = Interfaz
-				.pideDato("Introduzca el IDENTIFICADOR del fichero, p.e. X.- nombre.Fichero, el identificador es X");
-		int idFichero = Integer.parseInt(s);
+	private void darDeBaja() throws Exception {
+		String autenticadorURL = autenticador;
+		ServicioAutenticacionInterface servicioAutenticacionInterface = (ServicioAutenticacionInterface) Naming
+				.lookup(autenticadorURL);
 
-		listarClientes();
-		String nombreCliente = Interfaz.pideDato("Introduzca nombre del cliente");
+		int idSesioncliente = servicioAutenticacionInterface.getIdSesioncliente();
 
-		String URLRegistro = cliente; // RMI
-		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
+		String nombre = servicioAutenticacionInterface.darDeBajaCliente(idSesioncliente);
 
-		boolean compartido = servicioGestor.compartirFichero(idFichero, nombreCliente, estado);
+		if (nombre != null) {
+			System.out.println("El cliente " + nombre + " ha sido dado de baja correctamente");
+		} else {
+			System.out.println("Ha ocurrido un error");
 
-		if (compartido)
-			System.out.println("El fichero se ha compartido correctamente");
-		else
-			System.out.println("El fichero no se ha podido compartir");
+		}
+
+		// Iniciamos el menú
+		new Cliente().iniciar();
 	}
 
 	/**
-	 * borrar un fichero, pide el borrado al servicio Gestor quien devuelve la url
-	 * del servicio del respositorio
+	 * Método para comprar la mercancía, este método preguntará por el id de la
+	 * demanda y el id de la oferta para asi registrar la compra
 	 * 
 	 * @throws MalformedURLException
 	 * @throws RemoteException
@@ -324,21 +218,50 @@ public class Cliente {
 
 		// Listamos las demandas para que el usuario pueda ver con claridad que demanda
 		// quiere procesar
-		servicioMercanciasInterface.listarDemandas();
+		try {
+			System.out.println("Demandas:\n");
+
+			for (Map.Entry<String, Integer> entry : servicioMercanciasInterface.getListaDemandas().entrySet()) {
+
+				String nombre = entry.getKey();
+				Integer id = entry.getValue();
+
+				System.out.println(nombre + " -> " + id);
+			}
+			System.out.println("\n**********************************\n");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 
 		// Listamos las ofertas para que el usuario pueda ver con claridad que oferta
 		// quiere procesar, tenemos en cuenta que puede haber varias oferta del mismo
 		// tipo, por tanto el cliente deberá elegir una, será necesario entonces mostrar
 		// su id
-		servicioMercanciasInterface.listarOfertas();
+		try {
+			System.out.println("Ofertas:\n");
 
-		String idDemanda = Interfaz.pideDato("Introduce el id de la demanda: ");
-		String idOferta = Interfaz.pideDato("Introduce el id de la oferta: ");
+			for (Map.Entry<String, Integer> entry : servicioMercanciasInterface.getListaNombreOfertas().entrySet()) {
+				String nombre = entry.getKey();
+				Integer id = entry.getValue();
+
+				System.out.println(nombre + " -> " + id);
+
+			}
+			System.out.println("\n**********************************\n");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		String idDemanda = Interfaz.preguntaUsuario("Introduce el id de la demanda: ");
+		String idOferta = Interfaz.preguntaUsuario("Introduce el id de la oferta: ");
 
 		// Sacamos el id del cliente para procesar la demanda
 		int idSesionCliente = servicioAutenticacionInterface.getIdSesioncliente();
 
-		int resultado = servicioMercanciasInterface.comprarMercancia(Integer.parseInt(idDemanda),
+		String ventasURL = cliente;// RMI
+		ServicioVentasInterface servicioVentasInterface = (ServicioVentasInterface) Naming.lookup(ventasURL);
+
+		int resultado = servicioVentasInterface.comprarMercancia(Integer.parseInt(idDemanda),
 				Integer.parseInt(idOferta), idSesionCliente);
 
 		switch (resultado) {
@@ -357,8 +280,8 @@ public class Cliente {
 	}
 
 	/**
-	 * solicita la descarga de un fichero pidiendo el id de fichero(compartidos
-	 * incluidos)
+	 * Método para recibir las ofertas, simplemente llama al servicio y lista las
+	 * ofertas disponibles
 	 * 
 	 * @throws MalformedURLException
 	 * @throws RemoteException
@@ -369,79 +292,63 @@ public class Cliente {
 		ServicioMercanciasInterface servicioMercanciasInterface = (ServicioMercanciasInterface) Naming
 				.lookup(URLRegistro);
 
-		servicioMercanciasInterface.listarOfertas();
+		Map<String, Integer> listaNombreOfertas = servicioMercanciasInterface.getListaNombreOfertas();
+		if (!listaNombreOfertas.isEmpty()) {
+			try {
+				System.out.println("********OFERTAS DISPONIBLES*********\n");
+
+				for (Map.Entry<String, Integer> entry : listaNombreOfertas.entrySet()) {
+					String nombre = entry.getKey();
+					Integer id = entry.getValue();
+
+					String tipo = null;
+					for (Map.Entry<Integer, String> tipoMercancia : servicioMercanciasInterface.getTipoMercanciaOferta()
+							.entrySet()) {
+						if (tipoMercancia.getKey().equals(id)) {
+							tipo = tipoMercancia.getValue();
+						}
+					}
+
+					float kilos = 0;
+					for (Map.Entry<Integer, Float> kilosMercancia : servicioMercanciasInterface
+							.getKilosMercanciaOferta().entrySet()) {
+						if (kilosMercancia.getKey().equals(id)) {
+							kilos = Float.parseFloat(kilosMercancia.getValue().toString());
+						}
+					}
+
+					System.out.println(nombre + ": " + "\n" + "\tTipo mercancia -> " + tipo + "\n\tKilos ofertados: "
+							+ kilos + "\n\tId -> " + id);
+
+				}
+				System.out.println("\n**********************************\n");
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		} else {
+			System.out.println("\nNo hay ofertas disponibles");
+
+		}
 
 	}
 
 	/**
-	 * solicita la subida de un fichero a su repo
+	 * Método para introducir la demanda, preguntará por un nombre para la demanda,
+	 * el tipo de mercancía y los kilos que se quieren pedir
 	 * 
-	 * @throws MalformedURLException
 	 * @throws RemoteException
+	 * @throws MalformedURLException
 	 * @throws NotBoundException
 	 */
-
-	/**
-	 * Se usa para levantar el servicio del Disco Cliente
-	 * 
-	 * @param numPuertoRMI
-	 *            numero de puerto del servicio DiscoCliente
-	 * @throws RemoteException
-	 */
-	private void arrancarRegistro(int numPuertoRMI) throws RemoteException {
-		try {
-			registryServicio = LocateRegistry.getRegistry(numPuertoRMI);
-			registryServicio.list(); // Esta llamada lanza
-			// una excepcion si el registro no existe
-		} catch (RemoteException e) {
-			// Registro no valido en este puerto
-			System.out.println("El registro RMI no se puede localizar en el puerto " + numPuertoRMI);
-			registryServicio = LocateRegistry.createRegistry(numPuertoRMI);
-			System.out.println("Registro RMI creado en el puerto " + numPuertoRMI);
-		}
-	}
-
-	/**
-	 * lista los servicios de un puerto
-	 * 
-	 * @param registryURL
-	 *            la direccion del puerto a comprobar
-	 * @throws RemoteException
-	 * @throws MalformedURLException
-	 */
-	private static void listRegistry(String registryURL) throws RemoteException, MalformedURLException {
-		System.out.println("Registry " + registryURL + " contiene: ");
-		String[] names = Naming.list(registryURL);
-		for (int i = 0; i < names.length; i++) {
-			System.out.println(names[i]);
-		}
-	}
-
-	/**
-	 * comprueba si tiene colgados servicios en el la URL
-	 * 
-	 * @param URL
-	 * @return true si no hay servicios en la URL
-	 * @throws RemoteException
-	 * @throws MalformedURLException
-	 */
-	private static boolean estaVacioRegistry(String URL) throws RemoteException, MalformedURLException {
-		String[] names = Naming.list(URL);
-		if (names.length == 0)
-			return true;
-		else
-			return false;
-	}
-
 	private void introducirDemanda() throws RemoteException, MalformedURLException, NotBoundException {
 
 		String URLRegistro = mercancias;// RMI
 		ServicioMercanciasInterface servicioMercanciasInterface = (ServicioMercanciasInterface) Naming
 				.lookup(URLRegistro);
 
-		String nombre = Interfaz.pideDato("Nombre demanda: ");
-		String tipo = Interfaz.pideDato("Tipo de mercancía: ");
-		String kilos = Interfaz.pideDato("Kilos que se desean: ");
+		String nombre = Interfaz.preguntaUsuario("Nombre demanda: ");
+		String tipo = Interfaz.preguntaUsuario("Tipo de mercancía: ");
+		String kilos = Interfaz.preguntaUsuario("Kilos que se desean: ");
 
 		// Sacamos el id del cliente para registrar la demanda
 		int idSesionCliente = servicioAutenticacionInterface.getIdSesioncliente();

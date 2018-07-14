@@ -1,11 +1,7 @@
 /**
- * Implementa la interface ServicioAutenticacionInterface
- * Se encarga de registrar, autenticar, desconectar a clientes y a repositorios
- * 
- * @autor Buenaventura Salcedo Santos-Olmo, xpressmoviles@gmail.com
- * @version v1.20170301
+ * Clase que autentica a los diferentes usuarios, tanto distribuidores como clientes, también se encarga de las bajas
+ * @autor rpablos13@alumno.uned.es
  */
-
 package es.sidi.regulador;
 
 import java.net.MalformedURLException;
@@ -14,47 +10,39 @@ import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 
-import es.sidi.common.Interfaz;
 import es.sidi.common.RandomSessionNumber;
 import es.sidi.common.ServicioAutenticacionInterface;
-import es.sidi.common.ServicioClienteInterface;
 import es.sidi.common.ServicioMercanciasInterface;
+import es.sidi.common.ServicioVentasInterface;
 
 public class ServicioAutenticacionImpl extends UnicastRemoteObject implements ServicioAutenticacionInterface {
 
-	// necesitamos identificadores de sesion
 	private static final long serialVersionUID = 1L;
+
 	private int puerto = 7791;
-	private ServicioMercanciasInterface servicioMercanciasInterface;
-	private ServicioClienteInterface servicioClienteInterface;
 	private int sesionDistribuidor;
 	private int sesionCliente;
 
 	/**
-	 * Contructor necesario al extender UnicastRemoteOBject y poder utilizar Naming
-	 * lo aprovecharemos tambien para buscar el almacen de datos
+	 * Constructor por defecto
 	 * 
 	 * @throws RemoteException
-	 * @throws NotBoundException
 	 * @throws MalformedURLException
+	 * @throws NotBoundException
 	 */
 	protected ServicioAutenticacionImpl() throws RemoteException, MalformedURLException, NotBoundException {
 		super();
-
-		// buscamos el objeto en el servidor gestor para autenticarnos
-		// String URLRegistro = "rmi://localhost:" + puerto + "/mercancia";
-		// servicioMercanciasInterface = (ServicioMercanciasInterface)
-		// Naming.lookup(URLRegistro);
 	}
 
 	/**
-	 * solicita al servicio de Datos la autenticacion de un cliente,
+	 * Método para autenticar el cliente
 	 * 
-	 * @param el
-	 *            nombre del cliente que se quiere autenticar
-	 * @return int el id sesion de cliente que se ha autenticado
-	 * @throws NotBoundException
+	 * @param nombre
+	 * @param password
+	 * @return
+	 * @throws RemoteException
 	 * @throws MalformedURLException
+	 * @throws NotBoundException
 	 */
 	@Override
 	public int autenticarCliente(String nombre, String password)
@@ -64,30 +52,32 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 		sesionCliente = sesionAleatoria;
 
 		String clienteURL = "rmi://localhost:" + puerto + "/cliente";
-		ServicioClienteInterface servicioClienteInterface = (ServicioClienteInterface) Naming.lookup(clienteURL);
+		ServicioVentasInterface servicioClienteInterface = (ServicioVentasInterface) Naming.lookup(clienteURL);
 
 		int id = servicioClienteInterface.autenticarCliente(nombre, sesionCliente, password);
 		switch (id) {
 		case 1:
-			Interfaz.imprime("Cliente " + nombre + " logueado correctamente");
+			System.out.println("Cliente " + nombre + " logueado correctamente");
 			break;
 		case 0:
-			Interfaz.imprime("Usuario o contraseña no válidos");
+			System.out.println("Usuario o contraseña no válidos");
 			break;
 		default:
-			Interfaz.imprime("El Cliente " + nombre + " ya se encuentra logueado");
+			System.out.println("El Cliente " + nombre + " ya se encuentra logueado");
 			break;
 		}
 		return id;
 	}
 
 	/**
-	 * registra un cliente
+	 * Método para registar un cliente
 	 * 
-	 * @param String
-	 *            el nombre del cliente a registrar
-	 * @return int -1 si no hay repos online, 0 si el cliente ya esta registrado y
-	 *         el id unico del registro en caso de éxito
+	 * @param nombre
+	 * @param password
+	 * @return
+	 * @throws RemoteException
+	 * @throws MalformedURLException
+	 * @throws NotBoundException
 	 */
 	@Override
 	public int registrarCliente(String nombre, String password)
@@ -95,13 +85,13 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 		int sesion = getSesion();
 
 		String clienteURL = "rmi://localhost:" + puerto + "/cliente";
-		ServicioClienteInterface servicioClienteInterface = (ServicioClienteInterface) Naming.lookup(clienteURL);
+		ServicioVentasInterface servicioClienteInterface = (ServicioVentasInterface) Naming.lookup(clienteURL);
 
 		int id = servicioClienteInterface.registrarCliente(nombre, sesion, password);
 		if (id != 0)
-			Interfaz.imprime("El usuario " + nombre + " se ha registrado Correctamente");
+			System.out.println("El usuario " + nombre + " se ha registrado Correctamente");
 		else
-			Interfaz.imprime("Ya existe el usuario " + nombre + " en el sistema");
+			System.out.println("Ya existe el usuario " + nombre + " en el sistema");
 		return id;
 	}
 
@@ -127,25 +117,27 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 
 		switch (idSesion) {
 		case 1:
-			Interfaz.imprime("Distribuidor " + nombre + " logueado correctamente");
+			System.out.println("Distribuidor " + nombre + " logueado correctamente");
 			break;
 		case 0:
-			Interfaz.imprime("Usuario o contraseña no válidos");
+			System.out.println("Usuario o contraseña no válidos");
 			break;
 		default:
-			Interfaz.imprime("El distribuidor " + nombre + " ya se encuentra logueado");
+			System.out.println("El distribuidor " + nombre + " ya se encuentra logueado");
 			break;
 		}
 		return idSesion;
 	}
 
 	/**
-	 * registra un repositorio
+	 * Método para regisrar un distribuidor
 	 * 
-	 * @String el nombre del repositorio
-	 * @return int el id sesion del repositorio
-	 * @throws NotBoundException
+	 * @param nombre
+	 * @param password
+	 * @return
+	 * @throws RemoteException
 	 * @throws MalformedURLException
+	 * @throws NotBoundException
 	 */
 	@Override
 	public int registrarDistribuidor(String nombre, String password)
@@ -158,49 +150,88 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 
 		int id = servicioMercanciasInterface.registrarDistribuidor(nombre, sesion, password);
 		if (id != 0)
-			Interfaz.imprime("El usuario " + nombre + " se ha registrado Correctamente");
+			System.out.println("El usuario " + nombre + " se ha registrado Correctamente");
 		else
-			Interfaz.imprime("Ya existe el usuario " + nombre + " en el sistema");
+			System.out.println("Ya existe el usuario " + nombre + " en el sistema");
 		return id;
 	}
 
 	/**
-	 * solicita al Gestor la desconexion de un cliente
+	 * Devuelve el un número aleatorio para la sesión
 	 * 
-	 * @param sesion
-	 *            int el id sesion del cliente a desconectar
+	 * @return
 	 */
-	@Override
-	public void desconectarCliente(int sesion) throws RemoteException {
-		String cliente = servicioClienteInterface.desconectarCliente(sesion);
-		Interfaz.imprime("El cliente " + cliente + " se ha desconectado del sistema");
-	}
-
-	/**
-	 * solicita al Gestor la desconexion de una repo
-	 * 
-	 * @param sesion
-	 *            int el id sesion de la repo a desconectar
-	 */
-	@Override
-	public void desconectarDistribuidor(int sesion) throws RemoteException {
-		String repo = servicioMercanciasInterface.desconectarDistribuidor(sesion);
-		Interfaz.imprime("La repo " + repo + " se ha desconectado del sistema");
-	}
-
-	/**
-	 * devulve un id de sesion
-	 * 
-	 * @return int un id sesion nuevo valido para cliente o repo
-	 */
-	// devuelve el contador de sesiones
 	public int getSesion() {
 		return RandomSessionNumber.generateSessionId();
 	}
 
+	/**
+	 * Simplemente llama a la sesión del cliente para saber cual es
+	 * 
+	 * @return
+	 * @throws RemoteException
+	 */
 	@Override
 	public int getIdSesioncliente() throws RemoteException {
 		return sesionCliente;
+	}
+
+	/**
+	 * Método para preguntar por el id de sesión de un distribuidor
+	 * 
+	 * @return
+	 * @throws RemoteException
+	 */
+	@Override
+	public int getIdSesionDistribuidor() throws RemoteException {
+		return sesionDistribuidor;
+	}
+
+	/**
+	 * Método para dar de baja a un distribuidor
+	 * 
+	 * @param sesionDistribuidor
+	 * @return
+	 * @throws RemoteException
+	 * @throws MalformedURLException
+	 * @throws NotBoundException
+	 */
+	@Override
+	public String darDeBajaDistribuidor(int sesionDistribuidor)
+			throws RemoteException, MalformedURLException, NotBoundException {
+
+		String distribuidorUrl = "rmi://localhost:" + puerto + "/mercancia";
+		ServicioMercanciasInterface servicioMercanciasInterface = (ServicioMercanciasInterface) Naming
+				.lookup(distribuidorUrl);
+
+		String nombreDistribuidor = servicioMercanciasInterface.darDeBajaDistribuidor(sesionDistribuidor);
+
+		System.out.println("El cliente " + nombreDistribuidor + " se ha dado de baja correctamente");
+
+		return nombreDistribuidor;
+
+	}
+
+	/**
+	 * Método para dar de baja a un distribuidor
+	 * 
+	 * @param sesionDistribuidor
+	 * @return
+	 * @throws RemoteException
+	 * @throws MalformedURLException
+	 * @throws NotBoundException
+	 */
+	@Override
+	public String darDeBajaCliente(int sesionCliente) throws RemoteException, MalformedURLException, NotBoundException {
+
+		String clienteUrl = "rmi://localhost:" + puerto + "/cliente";
+		ServicioVentasInterface servicioVentasInterface = (ServicioVentasInterface) Naming.lookup(clienteUrl);
+
+		String nombreCliente = servicioVentasInterface.darDeBajaCliente(sesionCliente);
+
+		System.out.println("El cliente " + nombreCliente + " se ha dado de baja correctamente");
+
+		return nombreCliente;
 	}
 
 }

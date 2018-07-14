@@ -1,7 +1,5 @@
 /**
  * Funciones del Distribuidor:
-
-
  * 
  * 1. Introducir oferta
  * 2. Quitar oferta
@@ -16,14 +14,10 @@ package es.sidi.distribuidor;
 import java.net.MalformedURLException;
 import java.rmi.ConnectException;
 import java.rmi.Naming;
-import java.rmi.NoSuchObjectException;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.rmi.server.UnicastRemoteObject;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 import es.sidi.common.Interfaz;
@@ -33,64 +27,57 @@ import es.sidi.common.ServicioMercanciasInterface;
 
 public class Distribuidor {
 
-	// lista de carpeta que se van a ir creando en la repo, hace falta agregar
-	// persistencia
-	// la visibilidad es ladel paquete
-	public static List<String> listaCarpetas;// = new ArrayList<String>();
+	// URL rmi
+	private static String autenticador;
+	private static String mercancia;
+	private static String cliente;
 
-	// atributos para buscar el servicio de autentificacion del servidor
 	private static int sesion = 0;
 	private static int puerto = 7791;
 	private static ServicioAutenticacionInterface servicioAutenticacionInterface;
 	private static String direccion = "localhost";
 
-	// aqui se van a guardar las URL rmi
-	private static String autenticador;
-	private static String mercancia;
-	private static String cloperador;
-
-	// atributos para levantar los servicios Mercancias
 	private static Registry registryServicio;
-	private static int puertoMercancia = 7792;
-	private static String nombreRepo;
-	// main
 
 	public static void main(String[] args) throws Exception {
 
 		autenticador = "rmi://" + direccion + ":" + puerto + "/autenticador";
 		mercancia = "rmi://" + direccion + ":" + puerto + "/mercancia";
+		cliente = "rmi://" + direccion + ":" + puerto + "/cliente";
+
+		ServicioVentasImpl servicioVentasImpl = new ServicioVentasImpl();
+		Naming.rebind(cliente, servicioVentasImpl);
+		System.out.println("Servicio Ventas levantado con éxito");
 
 		new Distribuidor().iniciar();
-		System.exit(0);// fin del programa,return o nada deja abierto el programa
 	}
 
-	/**
-	 * inicializa la tabla de la estructura logica de las carpetas
-	 */
-	public void inicializarTablas() {
-		listaCarpetas = new ArrayList<String>();
+	private Integer idSesionCliente;
 
-	}
+	private String nombre;
+
+	private Integer idOferta;
+
+	private int idNuevaOferta;
 
 	/**
-	 * pone en funcionamiento cada repositorio, trata la excepcion de conexion al
-	 * servidor intentando acceder para registrar o autenticar
+	 * inicia el menú
 	 * 
 	 * @throws Exception
 	 */
 	private void iniciar() throws Exception {
 
-		// si el servidor no esta disponible, cerramos informando de ello
+		// Arrancamos registry
+		arrancarRegistro(puerto);
+
 		try {
 			String autenticadorURL = autenticador;
-
 			servicioAutenticacionInterface = (ServicioAutenticacionInterface) Naming.lookup(autenticadorURL);
 
-			// mostramos el menu
 			int opcion = 0;
 			do {
-				opcion = Interfaz.menu("Menu Distribuidor",
-						new String[] { "Registrar un nuevo usuario", "Autenticar en el sistema (hacer login)" });
+				opcion = Interfaz.menu("Menu Distribuidor", new String[] { "Registrar un nuevo usuario",
+						"Autenticar en el sistema (hacer login)", "Salir" });
 				switch (opcion) {
 				case 1:
 					registrar();
@@ -101,71 +88,46 @@ public class Distribuidor {
 				}
 			} while (opcion != 3);
 		} catch (ConnectException e) {
-			System.out.println("Error de conexion, el servidor no esta disponible, vuelva a intentarlo mas tarde");
-			String st = Interfaz.pideDato("Pulse enter para finalizar...");
+			System.out.println("Conectando con el servidor " + Resultado.FAIL.getResultado());
+			String st = Interfaz.preguntaUsuario("Pulse enter para finalizar...");
+			System.exit(0);
 		}
 	}
 
 	/**
-	 * inicia la autenticacion de una repo en el sistema
+	 * Autenticar Distribuidor
 	 * 
 	 * @throws Exception
 	 */
 	private void autenticar() throws Exception {
-		String nombre = Interfaz.pideDato("Nombre: ");
-		String password = Interfaz.pideDato("Password: ");
+		String nombre = Interfaz.preguntaUsuario("Nombre: ");
+		String password = Interfaz.preguntaUsuario("Password: ");
 		sesion = servicioAutenticacionInterface.autenticarDistribuidor(nombre, password);
 
 		switch (sesion) {
 		case 1:
-			Interfaz.imprime("Distribuidor " + nombre + " logueado correctamente");
+			System.out.println("Distribuidor " + nombre + " logueado correctamente");
 			nuevoMenu();// Se genera un nuevo menu
 			break;
 		case 0:
-			Interfaz.imprime("Usuario o contraseña no válidos");
+			System.out.println("Usuario o contraseña no válidos");
 			break;
 		default:
-			Interfaz.imprime("El distribuidor " + nombre + " ya se encuentra logueado");
+			System.out.println("El distribuidor " + nombre + " ya se encuentra logueado");
 		}
 	}
 
 	/**
-	 * realiza la carga de los datos persistentes bindea los servicios una vez que
-	 * la repo se ha autenticado muestra el menu y cuando se sale del menu elimina
-	 * los servicios y elimina el registry cada repo levanta dos servicios con su id
-	 * sesion
+	 * Carga del nuevo menú con las funcionalidades pedidas
 	 * 
 	 * @throws Exception
 	 */
 	private void nuevoMenu() throws Exception {
 
-		String mercanciaURL = mercancia;
-
-		// arrancarRegistro(puertoMercancia);
-		// cuidado con la linea siguiente
-		// Utils.setCodeBase(ServicioVentasInterface.class);
-
-		// ServicioVentasImpl servicioVentasImpl = new ServicioVentasImpl();
-		// mercanciaURL = mercancia + sesion;// RMI
-		// Naming.rebind(mercanciaURL, servicioVentasImpl);
-		// System.out.println("Levantado Servicio ventas, Resultado: " +
-		// Resultado.SUCCESSFUL);
-
-		// // Levantar SrOperador en sroperador
-		// ServicioClOperadorImpl objetoClOperador = new ServicioClOperadorImpl();
-		// URLRegistro = cloperador + estado;// RMI
-		// Naming.rebind(URLRegistro, objetoClOperador);
-		// System.out.println("Operacion: Servicio Cliente Operador preparado con
-		// exito");
-
-		// listRegistry("rmi://" + direccionServicio + ":" + puertoServicio);//
-		// mostramos los servicios colgados
-		// menu una vez autenticado el servicio
-
 		int opcion = 0;
 		do {
 			opcion = Interfaz.menu("Operaciones de Distribuidor", new String[] { "Introducir Oferta", "Quitar oferta",
-					"Mostrar ventas", "Darse de baja en el sistema" });
+					"Mostrar ventas", "Darse de baja en el sistema", "Salir" });
 			switch (opcion) {
 
 			case 1:
@@ -180,79 +142,171 @@ public class Distribuidor {
 			case 4:
 				darDeBaja();
 				break;
-
 			}
 		} while (opcion != 5);
-		desconectar();// si pulsa salir aqui desconectar los servicios
-		try {
-			// eliminar Servidor-Operador
-			System.out.println("Operacion: Servicio Servidor Operador cerrandose...");
-			// URLRegistro = sroperador + estado;// RMI
-			// Naming.unbind(URLRegistro);
-			System.out.println("Operacion: Servicio Servidor Operador cerrado con exito");
-
-			// eliminar Cliente-Operador
-			System.out.println("Operacion: Servicio Cliente Operador cerrandose...");
-			mercanciaURL = cloperador + sesion;// RMI;
-			Naming.unbind(mercanciaURL);
-			System.out.println("Operacion: Servicio Cliente Operador cerrado con exito");
-
-			// cerrar rmiregistry del objeto registry unico
-			if (estaVacioRegistry(cloperador)) { // RMI
-				UnicastRemoteObject.unexportObject(registryServicio, true);// true aunque haya pendiente cosas, false
-																			// solo sin pendientes
-				System.out.println("Operacion: Registry cerrado con exito");
-			} else
-				System.out.println("Operacion: Registry todavia esta abierto porque quedan repositorios conectados");
-
-		} catch (NoSuchObjectException e) {
-			System.out.println("No se ha podido cerrar el registro, se ha forzado el cierre");
-		}
-		sesion = 0;
+		System.exit(0);
 
 	}
 
-	private void salir() {
-		// TODO Auto-generated method stub
+	/**
+	 * Dar de baja, simplemente elimina el registro de la lista
+	 * 
+	 * @throws Exception
+	 */
+	private void darDeBaja() throws Exception {
+		String autenticadorURL = autenticador;
+		ServicioAutenticacionInterface servicioAutenticacionInterface = (ServicioAutenticacionInterface) Naming
+				.lookup(autenticadorURL);
 
-	}
+		int idSesionDistribuidor = servicioAutenticacionInterface.getIdSesionDistribuidor();
 
-	private void darDeBaja() {
-		// TODO Auto-generated method stub
+		String nombre = servicioAutenticacionInterface.darDeBajaDistribuidor(idSesionDistribuidor);
 
-	}
-
-	private void mostrarVentas() throws MalformedURLException, RemoteException, NotBoundException {
-
-		String URLRegistro = mercancia;// RMI
-		ServicioMercanciasInterface servicioMercanciasInterface = (ServicioMercanciasInterface) Naming
-				.lookup(URLRegistro);
-
-		int resultado = servicioMercanciasInterface.listarVentasPorDistribuidor();
-		switch (resultado) {
-		case 0:
-			System.out.println(
-					"No se reconoce el tipo de Mercancía, por favor verifique que ha introducido alguno de los siguientes productos");
-			break;
-		case 1:
-			System.out.println("Oferta registrada con éxito");
-			break;
-		default:
-			break;
+		if (nombre != null) {
+			System.out.println("El distribuidor " + nombre + " ha sido dado de baja correctamente");
+			iniciar();
+		} else {
+			System.out.println("Ha ocurrido un error");
 		}
 
 	}
 
 	/**
-	 * registra una repo
+	 * Muestra las ventas que se han realizado por distribuidor
 	 * 
+	 * @throws MalformedURLException
 	 * @throws RemoteException
 	 * @throws NotBoundException
+	 */
+	private void mostrarVentas() throws MalformedURLException, RemoteException, NotBoundException {
+
+		Integer idNuevaDemanda = null;
+		Integer idNuevaCompra = null;
+		float dineroTotalRecaudado = 0;
+
+		String URLRegistro = mercancia;// RMI
+		ServicioMercanciasInterface servicioMercanciasInterface = (ServicioMercanciasInterface) Naming
+				.lookup(URLRegistro);
+
+		if (!servicioMercanciasInterface.getListaCompras().isEmpty()) {
+
+			try {
+				System.out.println(
+						"==================================\n********VENTAS REALIZADAS*********\n==================================\n");
+
+				for (Map.Entry<Integer, Integer> listaVentas : servicioMercanciasInterface.getListaCompras()
+						.entrySet()) {
+
+					idNuevaCompra = listaVentas.getKey();
+					idNuevaDemanda = listaVentas.getValue();
+
+					for (Map.Entry<Integer, Integer> relacionClienteCompra : servicioMercanciasInterface
+							.getListaCompraSesionCliente().entrySet()) {
+
+						if (relacionClienteCompra.getKey().equals(idNuevaCompra))
+							idSesionCliente = relacionClienteCompra.getValue();
+
+					}
+
+					// NOMBRE DEL CLIENTE
+					String nombreCliente = null;
+					for (Map.Entry<Integer, String> nombreClientes : servicioMercanciasInterface.getMapNombresClientes()
+							.entrySet()) {
+						if (nombreClientes.getKey().equals(idSesionCliente)) {
+							nombreCliente = nombreClientes.getValue();
+						}
+					}
+
+					// NOMBRE DISTRIBUIDOR
+					String nombreDistribuidor = null;
+					for (Map.Entry<Integer, String> nombreDistribuidores : servicioMercanciasInterface
+							.getDistribuidoresAutenticados().entrySet()) {
+						if (nombreDistribuidores.getKey()
+								.equals(servicioMercanciasInterface.getIdSesionDistribuidor())) {
+							nombreDistribuidor = nombreDistribuidores.getValue();
+						}
+					}
+
+					// TIPO DE PRODUCTO COMPRADO
+					for (Map.Entry<Integer, Integer> tipoOferta : servicioMercanciasInterface.getListaOfertasCompra()
+							.entrySet()) {
+						if (tipoOferta.getKey().equals(idNuevaCompra)) {
+							idNuevaOferta = Integer.parseInt(tipoOferta.getValue().toString());
+						}
+
+					}
+
+					String tipo = null;
+					for (Map.Entry<Integer, String> tipoProductos : servicioMercanciasInterface.getTipoMercanciaOferta()
+							.entrySet()) {
+						if (tipoProductos.getKey().equals(idNuevaOferta)) {
+							tipo = tipoProductos.getValue();
+						}
+					}
+
+					// KILOS DEMANDADOS
+					Float kilos = null;
+					for (Map.Entry<Integer, Float> kilosDemandados : servicioMercanciasInterface
+							.getKilosMercanciaDemanda().entrySet()) {
+						if (kilosDemandados.getKey().equals(idNuevaDemanda)) {
+							kilos = kilosDemandados.getValue();
+						}
+					}
+
+					// NOMBRE OFERTA
+					String nombreOferta = null;
+					for (Map.Entry<String, Integer> nombreOfertas : servicioMercanciasInterface.getListaNombreOfertas()
+							.entrySet()) {
+						if (nombreOfertas.getValue().equals(idNuevaOferta)) {
+							nombreOferta = nombreOfertas.getKey();
+						}
+					}
+
+					// PRECIO OFERTA
+					Float precioOferta = null;
+					for (Map.Entry<Integer, Float> precioOfertas : servicioMercanciasInterface
+							.getPrecioMercanciaOferta().entrySet()) {
+						if (precioOfertas.getKey().equals(idNuevaOferta)) {
+							precioOferta = precioOfertas.getValue();
+						}
+					}
+
+					float dineroReaudado = precioOferta * kilos;
+					dineroTotalRecaudado += dineroReaudado;
+
+					System.out.println("Cliente: " + nombreCliente + ": " + "\n" + "\tTipo mercancia -> " + tipo
+							+ "\n\tKilos demandados: " + kilos + "\n\tNombre del Distribuidor: " + nombreDistribuidor
+							+ "\n\tOferta realizada: " + nombreOferta + " (" + precioOferta + " €/Kg" + ")"
+							+ "\n\tDinero recaudado: " + dineroReaudado + "€");
+					System.out.println("\n********************************\n");
+				}
+
+				System.out.println("Dinero Total Recaudado: " + dineroTotalRecaudado + "€");
+
+				System.out.println(
+						"\n==================================\n**********************************\n==================================\n");
+
+			} catch (
+
+			Exception e) {
+				e.printStackTrace();
+			}
+		} else {
+			System.out.println("No se ha registrado ninguna venta aún");
+		}
+
+	}
+
+	/**
+	 * Registra un distribuidor
+	 * 
+	 * @throws RemoteException
 	 * @throws MalformedURLException
+	 * @throws NotBoundException
 	 */
 	private void registrar() throws RemoteException, MalformedURLException, NotBoundException {
-		String nombreDistribuidor = Interfaz.pideDato("Nombre: ");
-		String passwordDistribuidor = Interfaz.pideDato("Contraseña: ");
+		String nombreDistribuidor = Interfaz.preguntaUsuario("Nombre: ");
+		String passwordDistribuidor = Interfaz.preguntaUsuario("Contraseña: ");
 
 		if (servicioAutenticacionInterface.registrarDistribuidor(nombreDistribuidor, passwordDistribuidor) != 0)
 			System.out.println("Registro del Distribuidor. Resultado: " + Resultado.SUCCESSFUL.getResultado());
@@ -272,10 +326,8 @@ public class Distribuidor {
 	private void arrancarRegistro(int numPuertoRMI) throws RemoteException {
 		try {
 			registryServicio = LocateRegistry.getRegistry(numPuertoRMI);
-			registryServicio.list(); // Esta llamada lanza
-			// una excepcion si el registro no existe
+			registryServicio.list();
 		} catch (RemoteException e) {
-			// Registro no valido en este puerto
 			System.out.println("El registro RMI no se puede localizar en el puerto " + numPuertoRMI);
 			registryServicio = LocateRegistry.createRegistry(numPuertoRMI);
 			System.out.println("Registro RMI creado en el puerto " + numPuertoRMI);
@@ -283,25 +335,11 @@ public class Distribuidor {
 	}
 
 	/**
-	 * desconecta una repo
+	 * Quitar oferta
 	 * 
 	 * @throws RemoteException
-	 */
-	private void desconectar() throws RemoteException {
-
-		servicioAutenticacionInterface.desconectarDistribuidor(sesion);
-		// miSesion=0;
-
-		// Tambien hay que eliminar servicios
-
-	}
-
-	/**
-	 * imprime la lista de ficheros de un cliente, pide el dato por teclado
-	 * 
-	 * @throws RemoteException
-	 * @throws NotBoundException
 	 * @throws MalformedURLException
+	 * @throws NotBoundException
 	 */
 	private void quitarOferta() throws RemoteException, MalformedURLException, NotBoundException {
 
@@ -309,45 +347,46 @@ public class Distribuidor {
 		ServicioMercanciasInterface servicioMercanciasInterface = (ServicioMercanciasInterface) Naming
 				.lookup(URLRegistro);
 
-		// String idOferta = Interfaz.pideDato("Introduce el Id de la oferta que desea
-		// eliminar: ");
 		Map<String, Integer> listarOfertasPorSesion = servicioMercanciasInterface.getListarOfertasPorSesion();
 
-		System.out.println("Ofertas del distribuidor:");
-
 		for (Map.Entry<String, Integer> entry : listarOfertasPorSesion.entrySet()) {
-			String nombre = entry.getKey();
-			Integer idOferta = entry.getValue();
-
-			System.out.println("Oferta: " + nombre + " -> " + idOferta);
+			nombre = entry.getKey();
+			idOferta = entry.getValue();
 		}
 
-		String id = Interfaz.pideDato("Introduce el ID de la oferta que desea eliminar: ");
+		if (!listarOfertasPorSesion.isEmpty()) {
 
-		int resultado = servicioMercanciasInterface.quitarOferta(Integer.parseInt(id));
+			System.out.println("Ofertas del distribuidor:");
+			System.out.println("Oferta: " + nombre + " -> " + idOferta);
 
-		// int resultado = servicioMercanciasInterface.quitarOferta();
-		switch (resultado) {
-		case 0:
-			System.out.println(
-					"No se reconoce el tipo de Mercancía, por favor verifique que ha introducido alguno de los siguientes productos");
-			break;
-		case 1:
-			System.out.println("Oferta eliminada correctamente");
-			break;
-		default:
-			break;
+			String id = Interfaz.preguntaUsuario("Introduce el ID de la oferta que desea eliminar: ");
+
+			int resultado = servicioMercanciasInterface.quitarOferta(Integer.parseInt(id));
+
+			switch (resultado) {
+			case 0:
+				System.out.println(
+						"No se reconoce el tipo de Mercancía, por favor verifique que ha introducido alguno de los siguientes productos");
+				// TODO: Listar productos
+				break;
+			case 1:
+				System.out.println("Oferta eliminada correctamente");
+				break;
+			default:
+				break;
+			}
+		} else {
+			System.out.println("No hay ofertas por el momento");
 		}
 
 	}
 
 	/**
-	 * imprime la lista de carpetas, los id unico de los clientes que mantiene en la
-	 * estructura logica listaCarpetas leer las carpetas es mas lento
+	 * Inroducir oferta
 	 * 
 	 * @throws RemoteException
-	 * @throws NotBoundException
 	 * @throws MalformedURLException
+	 * @throws NotBoundException
 	 */
 	private void introducirOferta() throws RemoteException, MalformedURLException, NotBoundException {
 
@@ -355,10 +394,10 @@ public class Distribuidor {
 		ServicioMercanciasInterface servicioMercanciasInterface = (ServicioMercanciasInterface) Naming
 				.lookup(URLRegistro);
 
-		String nombre = Interfaz.pideDato("Nombre de la oferta: ");
-		String tipo = Interfaz.pideDato("Tipo: ");
-		String precio = Interfaz.pideDato("Precio: ");
-		String kilos = Interfaz.pideDato("Kilos: ");
+		String nombre = Interfaz.preguntaUsuario("Nombre de la oferta: ");
+		String tipo = Interfaz.preguntaUsuario("Tipo: ");
+		String precio = Interfaz.preguntaUsuario("Precio: ");
+		String kilos = Interfaz.preguntaUsuario("Kilos: ");
 
 		int resultado = servicioMercanciasInterface.registrarOferta(tipo, precio, kilos, nombre);
 		switch (resultado) {
@@ -373,39 +412,6 @@ public class Distribuidor {
 			break;
 		}
 
-	}
-
-	/**
-	 * lista los servicios que hay bindeados en la url
-	 * 
-	 * @param registryURL
-	 *            la url de los servicios que queremos mostrar
-	 * @throws RemoteException
-	 * @throws MalformedURLException
-	 */
-	private static void listRegistry(String registryURL) throws RemoteException, MalformedURLException {
-		System.out.println("Registry " + registryURL + " contiene: ");
-		String[] names = Naming.list(registryURL);
-		for (int i = 0; i < names.length; i++) {
-			System.out.println(names[i]);
-		}
-	}
-
-	/**
-	 * comprueba si esta vacia la lista de servicios de la url
-	 * 
-	 * @param URL
-	 *            String la url a mostrar
-	 * @return boolean true si esta vacia, false en caso contrario
-	 * @throws RemoteException
-	 * @throws MalformedURLException
-	 */
-	private static boolean estaVacioRegistry(String URL) throws RemoteException, MalformedURLException {
-		String[] names = Naming.list(URL);
-		if (names.length == 0)
-			return true;
-		else
-			return false;
 	}
 
 }

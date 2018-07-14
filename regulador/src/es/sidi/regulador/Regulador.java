@@ -12,13 +12,17 @@
  */
 package es.sidi.regulador;
 
+import java.net.MalformedURLException;
 import java.rmi.Naming;
+import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.Map;
 
 import es.sidi.common.Interfaz;
 import es.sidi.common.ServicioAutenticacionInterface;
+import es.sidi.common.ServicioVentasInterface;
 import es.sidi.common.Utils;
 
 public class Regulador {
@@ -26,49 +30,27 @@ public class Regulador {
 	private static int puerto = 7791;
 	private static Registry registry;
 	private static String direccion = "localhost";
+	private static ServicioAutenticacionImpl servicioAutenticacionImpl;
+	private static ServicioMercanciasImpl servicioMercanciasImpl;
+	private static ServicioVentasInterface servicioVentasInterface;
+	private static String url;
 
 	/**
-	 * main Arranca el registry Bindea los servicios de datos,autenticacion y el
-	 * gestor imprime el menu de opciones cuando sale del menu debe guardar los
-	 * datos persistentes, eliminar los servicios y el registry
+	 * Clase main principal
 	 * 
 	 * @param args
 	 * @throws Exception
 	 */
 	public static void main(String[] args) throws Exception {
 
-		String URLRegistry;
-
-		// levantamos el registro es como rmiregistry en la shell
-		// Registry registry = LocateRegistry.createRegistry(puerto);
-		arrancarRegistro(puerto);
-
-		// ubicacion de la clase
-		Utils.setCodeBase(ServicioAutenticacionInterface.class);
-
-		// Levantar Servicio Auntentificador
-		ServicioAutenticacionImpl servicioAutenticacionImpl = new ServicioAutenticacionImpl();
-		URLRegistry = "rmi://" + direccion + ":" + puerto + "/autenticador";
-		Naming.rebind(URLRegistry, servicioAutenticacionImpl);
-		System.out.println("Servicio Autentificador levantado con éxito");
-
-		// Levantar Servicio Mercancía
-		ServicioMercanciasImpl servicioMercanciasImpl = new ServicioMercanciasImpl();
-		URLRegistry = "rmi://" + direccion + ":" + puerto + "/mercancia";
-		Naming.rebind(URLRegistry, servicioMercanciasImpl);
-		System.out.println("Servicio Mercancias levantado con éxito");
-
-		// Levantar Servicio Cliente
-		ServicioClienteImpl servicioClienteImpl = new ServicioClienteImpl();
-		URLRegistry = "rmi://" + direccion + ":" + puerto + "/cliente";
-		Naming.rebind(URLRegistry, servicioClienteImpl);
-		System.out.println("Servicio Cliente levantado con éxito");
+		// Iniciamos los servicios
+		iniciarServidor();
 
 		// menu
 		int opcion = 0;
 		do {
 			opcion = Interfaz.menu("Servidor", new String[] { "Listar ofertas actuales", "Listar demandas actuales",
-					"Listar clientes", "Listar distribuidores" });
+					"Listar clientes", "Listar distribuidores", "Salir" });
 			switch (opcion) {
 			case 1:
 				servicioMercanciasImpl.listarOfertas();
@@ -77,7 +59,30 @@ public class Regulador {
 				servicioMercanciasImpl.listarDemandas();
 				break;
 			case 3:
-				servicioClienteImpl.listarClientes();
+				String ventasURL = "rmi://" + direccion + ":" + puerto + "/cliente";
+				servicioVentasInterface = (ServicioVentasInterface) Naming.lookup(ventasURL);
+
+				if (!servicioVentasInterface.getClientesRegistrados().isEmpty()) {
+
+					try {
+						System.out.println("********LISTA CLIENTES*********\n");
+
+						for (Map.Entry<Integer, String> entry : servicioVentasInterface.getClientesRegistrados()
+								.entrySet()) {
+							Integer id = entry.getKey();
+							String nombre = entry.getValue();
+
+							System.out.println(nombre + " -> " + id);
+
+						}
+						System.out.println("\n*******************************\n");
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				} else {
+					System.out.println("No se encuentran clientes registrados actualmente");
+
+				}
 				break;
 			case 4:
 				servicioMercanciasImpl.listarDistribuidores();
@@ -85,74 +90,44 @@ public class Regulador {
 			}
 		} while (opcion != 5);
 
-		// // mantenerPersistencia antes de cerrar
-		// objetoDatos.guardarDatosPersistentes();
-		//
-		// // eliminar Autenticador
-		// System.out.println("Operacion: Servicio Autenticador cerrandose...");
-		// URLRegistro = "rmi://" + direccion + ":" + puerto + "/autenticador";
-		// Naming.unbind(URLRegistro);
-		// System.out.println("Operacion: Servicio Autenticador cerrado con exito");
-		//
-		// // antes de tirar el almacen de Datos hay que indicarle que lo vamos a tirar
-		// // para que serialize los datos y los guarde en un fichero
-		// // eliminar almacen Datos
-		// System.out.println("Operacion: Servicio Datos cerrandose...");
-		// URLRegistro = "rmi://" + direccion + ":" + puerto + "/almacen";
-		// Naming.unbind(URLRegistro);
-		// System.out.println("Operacion: Servicio Datos cerrado con exito");
-		//
-		// // eliminar Gestor
-		// System.out.println("Operacion: Servicio Gestor cerrandose...");
-		// URLRegistro = "rmi://" + direccion + ":" + puerto + "/gestor";
-		// Naming.unbind(URLRegistro);
-		// System.out.println("Operacion: Servicio Gestor cerrado con exito");
-		//
-		// // cerrar rmiregistry del objeto registry unico
-		// try {
-		// UnicastRemoteObject.unexportObject(registry, true);
-		// System.out.println("Operacion: Registry cerrado con exito");
-		// } catch (java.rmi.NoSuchObjectException e) {
-		// System.err.println("Operacion: Registry no se ha cerrado");
-		// }
-		// return;
-		System.exit(0);// queda feo, pero es que sino no se cierra el servicio
+		// NO es lo correcto, hay que cerrar los servicios primero, queda pendiente
+		System.exit(0);
 	}
 
-	//
-	// /**
-	// * lista los servicios colgados
-	// * @param registryURL String la url que queremos mirar
-	// * @throws RemoteException
-	// * @throws MalformedURLException
-	// */
-	// private static void listRegistry(String registryURL) throws RemoteException,
-	// MalformedURLException{
-	// System.out.println("Registry " + registryURL + " contains: ");
-	// String[] names =Naming.list(registryURL);
-	// for (int i=0; i< names.length; i++)
-	// {
-	// System.out.println(names[i]);
-	// }
-	// }
-
 	/**
-	 * arranca el registry en el puerto indicado
+	 * Inicia los servicios
 	 * 
-	 * @param numPuertoRMI
-	 *            int el puerto de escucha
 	 * @throws RemoteException
+	 * @throws MalformedURLException
+	 * @throws NotBoundException
 	 */
-	private static void arrancarRegistro(int numPuertoRMI) throws RemoteException {
+	public static void iniciarServidor() throws RemoteException, MalformedURLException, NotBoundException {
+		arrancarRegistro(puerto);
+
+		Utils.setCodeBase(ServicioAutenticacionInterface.class);
+
+		servicioAutenticacionImpl = new ServicioAutenticacionImpl();
+		url = "rmi://" + direccion + ":" + puerto + "/autenticador";
+		Naming.rebind(url, servicioAutenticacionImpl);
+		System.out.println("Servicio Autentificador levantado con éxito");
+
+		servicioMercanciasImpl = new ServicioMercanciasImpl();
+		url = "rmi://" + direccion + ":" + puerto + "/mercancia";
+		Naming.rebind(url, servicioMercanciasImpl);
+		System.out.println("Servicio Mercancias levantado con éxito");
+
+	}
+
+	// Arrancamos el registro
+	private static void arrancarRegistro(int puertoRmi) throws RemoteException {
 		try {
-			registry = LocateRegistry.getRegistry(numPuertoRMI);
-			registry.list(); // Esta llamada lanza
-			// una excepcion si el registro no existe
+			registry = LocateRegistry.getRegistry(puertoRmi);
+			registry.list();
+
 		} catch (RemoteException e) {
-			// Registro no valido en este puerto
-			System.out.println("El registro RMI no se puede localizar en el puerto " + numPuertoRMI);
-			registry = LocateRegistry.createRegistry(numPuertoRMI);
-			System.out.println("Registro RMI creado en el puerto " + numPuertoRMI);
+			System.out.println("El registro RMI no se encuentar en el puerto " + puertoRmi);
+			registry = LocateRegistry.createRegistry(puertoRmi);
+			System.out.println("Registro RMI creado en el puerto " + puertoRmi);
 		}
 	}
 
