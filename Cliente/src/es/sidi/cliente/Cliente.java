@@ -13,26 +13,22 @@
  */
 package es.sidi.cliente;
 
-import java.io.File;
 import java.net.MalformedURLException;
 import java.rmi.ConnectException;
 import java.rmi.Naming;
-import java.rmi.NoSuchObjectException;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.rmi.server.UnicastRemoteObject;
 import java.util.List;
 
-import es.sidi.common.DatosIntercambio;
-import es.sidi.common.Fichero;
 import es.sidi.common.Interfaz;
 import es.sidi.common.Resultado;
 import es.sidi.common.ServicioAutenticacionInterface;
-import es.sidi.common.ServicioClOperadorInterface;
+import es.sidi.common.ServicioClienteInterface;
 import es.sidi.common.ServicioGestorInterface;
-import es.sidi.common.ServicioSrOperadorInterface;
+import es.sidi.common.ServicioMercanciasInterface;
+import es.sidi.common.ServicioVentasInterface;
 import es.sidi.common.Utils;
 
 public class Cliente {
@@ -40,13 +36,15 @@ public class Cliente {
 	private static int estado = 0;
 
 	// atributos para buscar los servicios del servidor
-	private static int puerto = 7791;
+	private static int puertoAutenticador = 7791;
+	private static Registry registryServicio;
 	private static ServicioAutenticacionInterface servicioAutenticacionInterface;
 	private static String direccion = "localhost";
 
 	// aqui se van a guardar las URL rmi
 	private static String autenticador;
-	private static String gestor;
+	private static String mercancias;
+	private static String cliente;
 
 	private static String discocliente;
 
@@ -57,9 +55,11 @@ public class Cliente {
 	// es de suponer que esto es necesario ya que puede ejecutarse
 	// en otra maquina tendriamos que saber la ip nuestra
 	// y cambiarla por la direccionServicio
-	private static int puertoServicio = 7793;
-	private static Registry registryServicio;
-	private static String direccionServicio = "localhost";
+	private static int puertoMercancias = 7791;
+	private static ServicioMercanciasInterface servicioMercanciasInterface;
+
+	private static int puertoCliente = 7791;
+	private static ServicioClienteInterface servicioClienteInterface;
 
 	/**
 	 * main del cliente, generas las URL usadas en el programa
@@ -72,9 +72,9 @@ public class Cliente {
 		// vamos a crear aqui las direcciones, que por supuesto podriamos leerlas por
 		// teclado, desde un fichero de configuracion
 		// o bien pasarselas al jar
-		autenticador = "rmi://" + direccion + ":" + puerto + "/autenticador";
-		discocliente = "rmi://" + direccionServicio + ":" + puertoServicio + "/discocliente/";
-		gestor = "rmi://" + direccion + ":" + puerto + "/gestor";
+		autenticador = "rmi://" + direccion + ":" + puertoAutenticador + "/autenticador";
+		mercancias = "rmi://" + direccion + ":" + puertoMercancias + "/mercancia";
+		cliente = "rmi://" + direccion + ":" + puertoCliente + "/cliente";
 
 		new Cliente().iniciar();
 		System.exit(0);// fin del programa,return o nada deja abierto el programa
@@ -106,7 +106,7 @@ public class Cliente {
 	 */
 	private void iniciar() throws Exception {
 
-		// buscamos el objeto en el servidor gestor para autenticarnos
+		// buscamos el objeto en el servidor cliente para autenticarnos
 		String URLRegistro = autenticador;// RMI
 
 		// si el servidor no esta disponible, cerramos informando de ello
@@ -179,43 +179,33 @@ public class Cliente {
 	 * @throws Exception
 	 */
 	private void nuevoMenuClientes() throws Exception {
-		String URLRegistro;
-		arrancarRegistro(puertoServicio);
+		String URLRegistro = cliente;
+		arrancarRegistro(puertoCliente);
 		// cuidado con la linea siguiente
-		Utils.setCodeBase(ServicioSrOperadorInterface.class);
+		Utils.setCodeBase(ServicioVentasInterface.class);
 
-		// Levantar SrOperador en sroperador
-		ServicioDiscoClienteImpl objetoDiscoCliente = new ServicioDiscoClienteImpl();
-		ServicioDiscoClienteImpl objetoDiscoCliente2 = new ServicioDiscoClienteImpl();
-		URLRegistro = "rmi://" + direccionServicio + ":" + puertoServicio + "/discocliente";
-		String URLRegistro2 = "rmi://" + direccionServicio + ":" + puertoServicio + "/discocliente/" + estado;
-		Naming.rebind(URLRegistro2, objetoDiscoCliente2);
-		URLRegistro = discocliente + estado;// RMI
-		Naming.rebind(URLRegistro, objetoDiscoCliente);
-		System.out.println("Operacion: Servicio Disco Cliente preparado con exito");
-
-		listRegistry("rmi://" + direccionServicio + ":" + puertoServicio);
-		// menu una vez autenticado el servicio
 		menuServicio();
 
-		// eliminar Servidor-Operador
-		System.out.println("Operacion: Servicio Disco Cliente cerrandose...");
-		try {
-			URLRegistro = discocliente + estado;// RMI
-			Naming.unbind(URLRegistro);
-			System.out.println("Operacion: Servicio Disco Cliente cerrado con exito");
-
-			// cerrar rmiregistry del objeto registry unico
-			if (estaVacioRegistry(discocliente)) { // RMI
-				UnicastRemoteObject.unexportObject(registryServicio, true);
-				System.out.println("Operacion: Registry cerrado con exito");
-			} else
-				System.out.println("Operacion: Registry todavia esta abierto porque quedan clientes conectados");
-
-		} catch (NoSuchObjectException e) {
-			System.out.println("No se ha podido cerrar el registro, se ha forzado el cierre");
-		}
-		estado = 0;
+		// // eliminar Servidor-Operador
+		// System.out.println("Operacion: Servicio Disco Cliente cerrandose...");
+		// try {
+		// URLRegistro = discocliente + estado;// RMI
+		// Naming.unbind(URLRegistro);
+		// System.out.println("Operacion: Servicio Disco Cliente cerrado con exito");
+		//
+		// // cerrar rmiregistry del objeto registry unico
+		// if (estaVacioRegistry(discocliente)) { // RMI
+		// UnicastRemoteObject.unexportObject(registryServicio, true);
+		// System.out.println("Operacion: Registry cerrado con exito");
+		// } else
+		// System.out.println("Operacion: Registry todavia esta abierto porque quedan
+		// clientes conectados");
+		//
+		// } catch (NoSuchObjectException e) {
+		// System.out.println("No se ha podido cerrar el registro, se ha forzado el
+		// cierre");
+		// }
+		// estado = 0;
 
 	}
 
@@ -263,7 +253,7 @@ public class Cliente {
 	 * @throws NotBoundException
 	 */
 	private void listarClientes() throws MalformedURLException, RemoteException, NotBoundException {
-		String URLRegistro = gestor;// RMI
+		String URLRegistro = cliente;// RMI
 		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
 
 		String lista = servicioGestor.listarClientes();
@@ -280,7 +270,7 @@ public class Cliente {
 	 */
 	private void salir() throws MalformedURLException, RemoteException, NotBoundException {
 
-		String URLRegistro = gestor;// RMI
+		String URLRegistro = cliente;// RMI
 		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
 
 		// el servicio Gestor solo necesita el id de la sesion del cliente para saber
@@ -307,7 +297,7 @@ public class Cliente {
 		listarClientes();
 		String nombreCliente = Interfaz.pideDato("Introduzca nombre del cliente");
 
-		String URLRegistro = gestor; // RMI
+		String URLRegistro = cliente; // RMI
 		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
 
 		boolean compartido = servicioGestor.compartirFichero(idFichero, nombreCliente, estado);
@@ -327,36 +317,41 @@ public class Cliente {
 	 * @throws NotBoundException
 	 */
 	private void comprarMercancia() throws MalformedURLException, RemoteException, NotBoundException {
-		// mostramos los ficheros
-		salir();
-		String s = Interfaz
-				.pideDato("Introduzca el IDENTIFICADOR del fichero, p.e. X.- nombre.Fichero, el identificador es X");
-		int idFichero = Integer.parseInt(s);
 
-		// Solicitamos la URL del ServicioClOperador
-		String URLRegistro = gestor;// RMI
-		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
-		// CUIDADO CON miSesion, hay que estudiar esto, para que no se borren los
-		// compartidos
-		DatosIntercambio di = servicioGestor.borrarFichero(idFichero, estado);
-		if (di.getUrl().equals(""))
-			System.out.println(
-					"No se ha podido completar el borrado, no tiene privilegios suficientes o el fichero no es suyo");
-		else {
-			String URL = di.getUrl();
-			String nombreFichero = di.getNombreFichero();
-			String propietario = "" + di.getIdCliente();
-			// System.out.println(propietario);
-			// System.out.println(URLservicioClOperador);
+		String URLRegistro = mercancias;// RMI
+		ServicioMercanciasInterface servicioMercanciasInterface = (ServicioMercanciasInterface) Naming
+				.lookup(URLRegistro);
 
-			ServicioClOperadorInterface servicioClOperador = (ServicioClOperadorInterface) Naming.lookup(URL);
+		// Listamos las demandas para que el usuario pueda ver con claridad que demanda
+		// quiere procesar
+		servicioMercanciasInterface.listarDemandas();
 
-			if (servicioClOperador.borrarFichero(nombreFichero, propietario) == false) {
-				System.out.println("Error al borrar el fichero " + nombreFichero
-						+ ", pida que lo borran manualmente al administrador del repositorio");
-			} else {
-				System.out.println("Fichero: " + nombreFichero + " borrado");
-			}
+		// Listamos las ofertas para que el usuario pueda ver con claridad que oferta
+		// quiere procesar, tenemos en cuenta que puede haber varias oferta del mismo
+		// tipo, por tanto el cliente deberá elegir una, será necesario entonces mostrar
+		// su id
+		servicioMercanciasInterface.listarOfertas();
+
+		String idDemanda = Interfaz.pideDato("Introduce el id de la demanda: ");
+		String idOferta = Interfaz.pideDato("Introduce el id de la oferta: ");
+
+		// Sacamos el id del cliente para procesar la demanda
+		int idSesionCliente = servicioAutenticacionInterface.getIdSesioncliente();
+
+		int resultado = servicioMercanciasInterface.comprarMercancia(Integer.parseInt(idDemanda),
+				Integer.parseInt(idOferta), idSesionCliente);
+
+		switch (resultado) {
+		case 0:
+			System.out.println("No hay suficiente cantidad de productos en la oferta, estas son las ofertas:");
+			servicioMercanciasInterface.listarOfertas();
+			break;
+		case 1:
+			System.out.println("Compra realizada con éxito");
+			break;
+		default:
+			System.out.println("Ha ocurrido un error desconocido");
+			break;
 		}
 
 	}
@@ -370,23 +365,11 @@ public class Cliente {
 	 * @throws NotBoundException
 	 */
 	private void recibirOfertas() throws MalformedURLException, RemoteException, NotBoundException {
-		salir();
-		String s = Interfaz
-				.pideDato("Introduzca el IDENTIFICADOR del fichero, p.e. X.- nombre.Fichero, el identificador es X");
-		int idFichero = Integer.parseInt(s);
+		String URLRegistro = mercancias;// RMI
+		ServicioMercanciasInterface servicioMercanciasInterface = (ServicioMercanciasInterface) Naming
+				.lookup(URLRegistro);
 
-		String URLRegistro = gestor;// RMI
-		ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
-		// realmente no necesitamos que nos devuelva nada en principio, pero comunicar
-		// algo siempre es importante para monitorizar el proceso
-		// String URLdiscoCliente = "rmi://" + direccionServicio + ":" + puertoServicio
-		// + "/" + "discocliente";
-		String URLdiscoCliente = discocliente + estado;// RMI
-		String cadena = servicioGestor.bajarFichero(URLdiscoCliente, idFichero, estado);
-		if (cadena == null)
-			System.out.println("No ha sido posible bajar ese fichero");
-		else
-			System.out.println("Fichero bajado: " + cadena);
+		servicioMercanciasInterface.listarOfertas();
 
 	}
 
@@ -397,47 +380,6 @@ public class Cliente {
 	 * @throws RemoteException
 	 * @throws NotBoundException
 	 */
-	private void introducirDemanda() throws MalformedURLException, RemoteException, NotBoundException {
-		// debe estar en la carpeta actual
-		System.out.println("¡¡OJO!! el fichero debe estar en la carpeta actual");
-		String nombreFichero = Interfaz.pideDato("Introduzca el nombre del fichero");
-		File f = new File(nombreFichero);
-		if (!f.exists())
-			System.out.println("El fichero no existe, abortamos la mision");
-		else {
-			// Solicitamos la URL del ServicioClOperador
-			String URLRegistro = gestor;// RMI
-			ServicioGestorInterface servicioGestor = (ServicioGestorInterface) Naming.lookup(URLRegistro);
-
-			// Le pasamos el nombre del fichero y el id de sesion y Gestor ya se encargara
-			// de colocar los metadatos
-			// Desde esta llamada podriamos pasar los metadatos como el peso o el ckecksum
-			// con los metodos de Fichero
-			// De todas formas el gestor va a poder conseguir el idRepo el
-			// nombreRepo,idCliente,nombreCliente con
-			// tan solo miSesion con ese dato que pida los datos al servicioDatos
-
-			DatosIntercambio datosURL = servicioGestor.subirFichero(nombreFichero, estado);
-
-			// extraemos la carpeta donde se va a guardar el fichero, que sera el id, del
-			// cliente
-			// que sera al mismo tiempo el propietario del Fichero, segundo parametro
-
-			String URLservicioClOperador = datosURL.getUrl();
-			String propietario = "" + datosURL.getIdCliente();
-
-			// HAY QUE COMPROBAR SI EXISTE EL FICHERO en la carpeta actual
-			Fichero fichero = new Fichero(nombreFichero, propietario);
-			ServicioClOperadorInterface servicioClOperador = (ServicioClOperadorInterface) Naming
-					.lookup(URLservicioClOperador);
-
-			if (servicioClOperador.subirFichero(fichero) == false) {
-				System.out.println("Error en el envío (Checksum failed), intenta de nuevo");
-			} else {
-				System.out.println("Fichero: " + nombreFichero + " enviado");
-			}
-		}
-	}
 
 	/**
 	 * Se usa para levantar el servicio del Disco Cliente
@@ -489,6 +431,36 @@ public class Cliente {
 			return true;
 		else
 			return false;
+	}
+
+	private void introducirDemanda() throws RemoteException, MalformedURLException, NotBoundException {
+
+		String URLRegistro = mercancias;// RMI
+		ServicioMercanciasInterface servicioMercanciasInterface = (ServicioMercanciasInterface) Naming
+				.lookup(URLRegistro);
+
+		String nombre = Interfaz.pideDato("Nombre demanda: ");
+		String tipo = Interfaz.pideDato("Tipo de mercancía: ");
+		String kilos = Interfaz.pideDato("Kilos que se desean: ");
+
+		// Sacamos el id del cliente para registrar la demanda
+		int idSesionCliente = servicioAutenticacionInterface.getIdSesioncliente();
+
+		int resultado = servicioMercanciasInterface.registrarDemanda(tipo, kilos, nombre, idSesionCliente);
+
+		switch (resultado) {
+		case 0:
+			System.out.println(
+					"No se reconoce el tipo de Mercancía, por favor verifique que ha introducido alguno de los siguientes productos");
+			// TODO: Listar tipos de productos
+			break;
+		case 1:
+			System.out.println("Demanda registrada  con éxito");
+			break;
+		default:
+			break;
+		}
+
 	}
 
 }

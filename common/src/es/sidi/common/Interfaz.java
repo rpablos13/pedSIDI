@@ -43,9 +43,9 @@ public class Interfaz {
 	 * @return String con el dato leido por teclado
 	 */
 	public static String pideDato(String titulo) {
-		System.out.println("\n " + titulo + " > ");
-		Scanner s = new Scanner(System.in);
-		return s.nextLine();
+		System.out.println("\n " + titulo);
+		Scanner reader = new Scanner(System.in);
+		return reader.nextLine();
 	}
 
 	/**

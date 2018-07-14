@@ -23,7 +23,8 @@ public interface ServicioAutenticacionInterface extends Remote {
 	 *         0 si ya esta autenticado y id sesion del cliente en otro caso
 	 * @throws RemoteException
 	 */
-	public int autenticarCliente(String nombre, String password) throws RemoteException;
+	public int autenticarCliente(String nombre, String password)
+			throws RemoteException, MalformedURLException, NotBoundException;
 
 	/**
 	 * intenta registrar a un cliente en el servidor
@@ -48,7 +49,8 @@ public interface ServicioAutenticacionInterface extends Remote {
 	 *         sesion de la repo en otro caso
 	 * @throws RemoteException
 	 */
-	public int autenticarDistribuidor(String nombre, String password) throws RemoteException;
+	public int autenticarDistribuidor(String nombre, String password)
+			throws RemoteException, MalformedURLException, NotBoundException;
 
 	/**
 	 * intenta registrar a un repositorio en el servidor
@@ -58,7 +60,8 @@ public interface ServicioAutenticacionInterface extends Remote {
 	 * @return 0 si la repo ya esta registrada, id unico de la repo en otro caso
 	 * @throws RemoteException
 	 */
-	public int registrarDistribuidor(String nombre, String password) throws RemoteException;
+	public int registrarDistribuidor(String nombre, String password)
+			throws RemoteException, MalformedURLException, NotBoundException;
 
 	/**
 	 * desconecta al cliente enviando el id sesion
@@ -77,5 +80,7 @@ public interface ServicioAutenticacionInterface extends Remote {
 	 * @throws RemoteException
 	 */
 	public void desconectarDistribuidor(int sesion) throws RemoteException;
+
+	int getIdSesioncliente() throws RemoteException;
 
 }

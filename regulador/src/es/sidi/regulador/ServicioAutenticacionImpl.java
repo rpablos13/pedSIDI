@@ -13,19 +13,22 @@ import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.Random;
 
 import es.sidi.common.Interfaz;
+import es.sidi.common.RandomSessionNumber;
 import es.sidi.common.ServicioAutenticacionInterface;
+import es.sidi.common.ServicioClienteInterface;
 import es.sidi.common.ServicioMercanciasInterface;
 
 public class ServicioAutenticacionImpl extends UnicastRemoteObject implements ServicioAutenticacionInterface {
 
 	// necesitamos identificadores de sesion
-	private static final long serialVersionUID = 123711131719L;
-	private int sesion = Math.abs(new Random().nextInt()); // no quiero numeros negativos
+	private static final long serialVersionUID = 1L;
 	private int puerto = 7791;
 	private ServicioMercanciasInterface servicioMercanciasInterface;
+	private ServicioClienteInterface servicioClienteInterface;
+	private int sesionDistribuidor;
+	private int sesionCliente;
 
 	/**
 	 * Contructor necesario al extender UnicastRemoteOBject y poder utilizar Naming
@@ -39,8 +42,9 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 		super();
 
 		// buscamos el objeto en el servidor gestor para autenticarnos
-		String URLRegistro = "rmi://localhost:" + puerto + "/almacen";
-		servicioMercanciasInterface = (ServicioMercanciasInterface) Naming.lookup(URLRegistro);
+		// String URLRegistro = "rmi://localhost:" + puerto + "/mercancia";
+		// servicioMercanciasInterface = (ServicioMercanciasInterface)
+		// Naming.lookup(URLRegistro);
 	}
 
 	/**
@@ -49,11 +53,20 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 	 * @param el
 	 *            nombre del cliente que se quiere autenticar
 	 * @return int el id sesion de cliente que se ha autenticado
+	 * @throws NotBoundException
+	 * @throws MalformedURLException
 	 */
 	@Override
-	public int autenticarCliente(String nombre, String password) throws RemoteException {
-		int sesionCliente = getSesion();
-		int id = servicioMercanciasInterface.autenticarCliente(nombre, sesionCliente, password);
+	public int autenticarCliente(String nombre, String password)
+			throws RemoteException, MalformedURLException, NotBoundException {
+		int sesionAleatoria = getSesion();
+
+		sesionCliente = sesionAleatoria;
+
+		String clienteURL = "rmi://localhost:" + puerto + "/cliente";
+		ServicioClienteInterface servicioClienteInterface = (ServicioClienteInterface) Naming.lookup(clienteURL);
+
+		int id = servicioClienteInterface.autenticarCliente(nombre, sesionCliente, password);
 		switch (id) {
 		case 1:
 			Interfaz.imprime("Cliente " + nombre + " logueado correctamente");
@@ -80,7 +93,11 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 	public int registrarCliente(String nombre, String password)
 			throws RemoteException, MalformedURLException, NotBoundException {
 		int sesion = getSesion();
-		int id = servicioMercanciasInterface.registrarCliente(nombre, sesion, password);
+
+		String clienteURL = "rmi://localhost:" + puerto + "/cliente";
+		ServicioClienteInterface servicioClienteInterface = (ServicioClienteInterface) Naming.lookup(clienteURL);
+
+		int id = servicioClienteInterface.registrarCliente(nombre, sesion, password);
 		if (id != 0)
 			Interfaz.imprime("El usuario " + nombre + " se ha registrado Correctamente");
 		else
@@ -94,12 +111,21 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 	 * @param String
 	 *            el nombre del repositorio
 	 * @return int el id sesion de la repo
+	 * @throws NotBoundException
+	 * @throws MalformedURLException
 	 */
 	@Override
-	public int autenticarDistribuidor(String nombre, String password) throws RemoteException {
-		int sesionDistribuidor = getSesion();
-		int id = servicioMercanciasInterface.autenticarDistribuidor(nombre, sesionDistribuidor, password);
-		switch (id) {
+	public int autenticarDistribuidor(String nombre, String password)
+			throws RemoteException, MalformedURLException, NotBoundException {
+		sesionDistribuidor = getSesion();
+
+		String mercanciasURL = "rmi://localhost:" + puerto + "/mercancia";
+		ServicioMercanciasInterface servicioMercanciasInterface = (ServicioMercanciasInterface) Naming
+				.lookup(mercanciasURL);
+
+		int idSesion = servicioMercanciasInterface.autenticarDistribuidor(nombre, sesionDistribuidor, password);
+
+		switch (idSesion) {
 		case 1:
 			Interfaz.imprime("Distribuidor " + nombre + " logueado correctamente");
 			break;
@@ -110,7 +136,7 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 			Interfaz.imprime("El distribuidor " + nombre + " ya se encuentra logueado");
 			break;
 		}
-		return id;
+		return idSesion;
 	}
 
 	/**
@@ -118,10 +144,18 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 	 * 
 	 * @String el nombre del repositorio
 	 * @return int el id sesion del repositorio
+	 * @throws NotBoundException
+	 * @throws MalformedURLException
 	 */
 	@Override
-	public int registrarDistribuidor(String nombre, String password) throws RemoteException {
+	public int registrarDistribuidor(String nombre, String password)
+			throws RemoteException, MalformedURLException, NotBoundException {
 		int sesion = getSesion();
+
+		String mercanciasURL = "rmi://localhost:" + puerto + "/mercancia";
+		ServicioMercanciasInterface servicioMercanciasInterface = (ServicioMercanciasInterface) Naming
+				.lookup(mercanciasURL);
+
 		int id = servicioMercanciasInterface.registrarDistribuidor(nombre, sesion, password);
 		if (id != 0)
 			Interfaz.imprime("El usuario " + nombre + " se ha registrado Correctamente");
@@ -138,7 +172,7 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 	 */
 	@Override
 	public void desconectarCliente(int sesion) throws RemoteException {
-		String cliente = servicioMercanciasInterface.desconectarCliente(sesion);
+		String cliente = servicioClienteInterface.desconectarCliente(sesion);
 		Interfaz.imprime("El cliente " + cliente + " se ha desconectado del sistema");
 	}
 
@@ -161,6 +195,12 @@ public class ServicioAutenticacionImpl extends UnicastRemoteObject implements Se
 	 */
 	// devuelve el contador de sesiones
 	public int getSesion() {
-		return ++sesion;
+		return RandomSessionNumber.generateSessionId();
 	}
+
+	@Override
+	public int getIdSesioncliente() throws RemoteException {
+		return sesionCliente;
+	}
+
 }
